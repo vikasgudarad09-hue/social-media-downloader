@@ -1,4 +1,4 @@
-const API_BASE_URL = "https://great-doodles-wonder.loca.lt";
+const API_BASE_URL = "https://social-media-downloader-wbdt.onrender.com";
 
 document.addEventListener("DOMContentLoaded", () => {
     const extractForm = document.getElementById("extract-form");
