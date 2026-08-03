@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Add parent directory of main.py to sys.path so 'app' module can be imported anywhere
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import ExtractRequest, ExtractResponse
