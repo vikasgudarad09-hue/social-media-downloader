@@ -1,5 +1,5 @@
-// ⚠️ UPDATE THIS URL after deploying backend to Railway (or any new host)
-const API_BASE_URL = "https://social-media-downloader-wbdt.onrender.com";
+const API_BASE_URL = "https://social-media-downloader-production-19ab.up.railway.app";
+
 
 
 document.addEventListener("DOMContentLoaded", () => {

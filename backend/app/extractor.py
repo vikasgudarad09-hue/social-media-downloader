@@ -309,13 +309,13 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         base.update({
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['ios', 'android_embedded', 'tv_embedded', 'android'],
+                    'player_client': ['mweb', 'web', 'android', 'ios'],
                 }
             },
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'geo_bypass': True,
             'http_headers': {
-                'User-Agent': 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X)',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                 'Accept-Language': 'en-US,en;q=0.9',
             },
         })
@@ -426,13 +426,73 @@ def build_formats(info: Dict):
     return extracted_formats, video_url, audio_url
 
 # ─────────────────────────────────────────────
-# Main extractor — 3-engine fallback chain
+# pytubefix YouTube fallback
+# ─────────────────────────────────────────────
+def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
+    try:
+        from pytubefix import YouTube
+        for client_type in ['WEB', 'MWEB', 'IOS']:
+            try:
+                yt = YouTube(url, client=client_type)
+                title = getattr(yt, 'title', None)
+                if not title:
+                    continue
+                thumbnail = getattr(yt, 'thumbnail_url', None)
+                length = getattr(yt, 'length', 0) or 0
+
+                stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
+                if not stream:
+                    stream = yt.streams.get_highest_resolution()
+
+                if stream and getattr(stream, 'url', None):
+                    formats = []
+                    for s in yt.streams.filter(file_extension='mp4')[:10]:
+                        s_url = getattr(s, 'url', None)
+                        if not s_url:
+                            continue
+                        formats.append({
+                            "format_id": str(getattr(s, 'itag', '')),
+                            "ext": "mp4",
+                            "resolution": str(getattr(s, 'resolution', None) or "Standard"),
+                            "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
+                            "url": s_url,
+                            "vcodec": getattr(s, 'video_codec', 'h264'),
+                            "acodec": getattr(s, 'audio_codec', 'aac')
+                        })
+
+                    return {
+                        "success": True,
+                        "url": url,
+                        "platform": "YouTube",
+                        "title": title,
+                        "thumbnail": thumbnail,
+                        "duration": length,
+                        "duration_formatted": format_duration(length),
+                        "video_url": stream.url,
+                        "audio_url": stream.url,
+                        "formats": formats,
+                        "error": None
+                    }
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return None
+
+# ─────────────────────────────────────────────
+# Main extractor — multi-engine fallback chain
 # ─────────────────────────────────────────────
 def extract_media_info(url: str) -> Dict[str, Any]:
     platform = detect_platform(url)
-    ytdlp_error = None
 
-    # ── Engine 1: yt-dlp with client spoofing ──
+    # ── YouTube Engine 1: pytubefix ──
+    if platform == "YouTube":
+        pytube_res = try_pytubefix(url)
+        if pytube_res:
+            return pytube_res
+
+    # ── Engine 2: yt-dlp ──
+    ytdlp_error = None
     try:
         with yt_dlp.YoutubeDL(build_ydl_opts(platform)) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -464,16 +524,14 @@ def extract_media_info(url: str) -> Dict[str, Any]:
     except Exception as e:
         ytdlp_error = str(e)
 
-    # ── Engine 2 & 3: YouTube-specific fallbacks (no sign-in needed) ──
+    # ── YouTube Engine 3 & 4: Piped & Invidious ──
     if platform == "YouTube":
         video_id = extract_youtube_id(url)
         if video_id:
-            # Try Piped first (most reliable)
             piped_data = try_piped(video_id)
             if piped_data:
                 return parse_piped_response(piped_data, video_id, url)
 
-            # Try Invidious as last resort
             inv_data = try_invidious(video_id)
             if inv_data:
                 return parse_invidious_response(inv_data, video_id, url)
@@ -492,3 +550,4 @@ def extract_media_info(url: str) -> Dict[str, Any]:
         "formats": [],
         "error": "Could not extract media. This video may be private, removed, or region-locked.",
     }
+
