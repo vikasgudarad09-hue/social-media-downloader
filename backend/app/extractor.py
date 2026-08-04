@@ -77,7 +77,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
         'no_warnings': True,
         'skip_download': True,
         'extract_flat': False,
-        'format': 'best',
+        'format': 'best/bestvideo+bestaudio/all',
         'socket_timeout': 15,
     }
 
