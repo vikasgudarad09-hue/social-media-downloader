@@ -1,4 +1,6 @@
+// ⚠️ UPDATE THIS URL after deploying backend to Railway (or any new host)
 const API_BASE_URL = "https://social-media-downloader-wbdt.onrender.com";
+
 
 document.addEventListener("DOMContentLoaded", () => {
     const extractForm = document.getElementById("extract-form");
