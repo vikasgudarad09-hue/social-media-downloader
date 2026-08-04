@@ -96,11 +96,52 @@ def get_platform_headers(platform: str) -> Dict[str, str]:
 
 def extract_media_info(url: str) -> Dict[str, Any]:
     """
-    Extracts video metadata and direct downloadable links using yt-dlp across all supported platforms.
+    Extracts video metadata and direct downloadable links using pytubefix/yt-dlp across all supported platforms.
     """
     platform = detect_platform(url)
     cookie_file = get_cookie_file_path()
 
+    # 1. Primary engine for YouTube: pytubefix (bypasses bot checks without cookies)
+    if platform == "YouTube":
+        try:
+            from pytubefix import YouTube
+            yt = YouTube(url)
+            stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+            if not stream:
+                stream = yt.streams.get_highest_resolution()
+
+            if stream and stream.url:
+                formats = []
+                for s in yt.streams.filter(file_extension='mp4')[:10]:
+                    if not s.url:
+                        continue
+                    formats.append({
+                        "format_id": str(s.itag),
+                        "ext": "mp4",
+                        "resolution": str(s.resolution or "Standard"),
+                        "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
+                        "url": s.url,
+                        "vcodec": getattr(s, 'video_codec', 'h264'),
+                        "acodec": getattr(s, 'audio_codec', 'aac')
+                    })
+
+                return {
+                    "success": True,
+                    "url": url,
+                    "platform": platform,
+                    "title": yt.title or "YouTube Video",
+                    "thumbnail": yt.thumbnail_url,
+                    "duration": yt.length or 0,
+                    "duration_formatted": format_duration(yt.length or 0),
+                    "video_url": stream.url,
+                    "audio_url": stream.url,
+                    "formats": formats,
+                    "error": None
+                }
+        except Exception:
+            pass
+
+    # 2. Secondary engine: yt-dlp for all platforms (Instagram, TikTok, Facebook, Twitter, Reddit, Pinterest)
     ydl_opts: Dict[str, Any] = {
         'quiet': True,
         'no_warnings': True,
@@ -108,7 +149,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
         'extract_flat': False,
         'format': 'best/bestvideo+bestaudio/all',
         'socket_timeout': 15,
-        'js_runtimes': {'node': {}},
         'http_headers': get_platform_headers(platform),
     }
 
@@ -122,7 +162,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             if info is None:
                 raise ValueError("Could not extract info from URL")
 
-            # Handle playlists or multi-video entries
             if 'entries' in info and info['entries']:
                 info = info['entries'][0]
 
@@ -131,7 +170,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             duration = info.get('duration') or 0
             duration_str = format_duration(duration)
 
-            # Find best video & audio links
             video_url = info.get('url')
             audio_url = None
             
@@ -165,7 +203,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
                     "acodec": acodec
                 })
 
-            # If direct video url is missing, pick best progressive (video+audio) format or best format overall
             if not video_url and extracted_formats:
                 combined_formats = [f for f in extracted_formats if f["vcodec"] != "none" and f["acodec"] != "none"]
                 if combined_formats:
@@ -188,46 +225,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             }
 
     except Exception as e:
-        # Fallback to pytubefix for YouTube if yt-dlp encounters bot / IP restrictions
-        if platform == "YouTube":
-            try:
-                from pytubefix import YouTube
-                yt = YouTube(url)
-                stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-                if not stream:
-                    stream = yt.streams.get_highest_resolution()
-
-                if stream and stream.url:
-                    formats = []
-                    for s in yt.streams.filter(file_extension='mp4')[:10]:
-                        if not s.url:
-                            continue
-                        formats.append({
-                            "format_id": str(s.itag),
-                            "ext": "mp4",
-                            "resolution": str(s.resolution or "Standard"),
-                            "filesize_approx": format_filesize(s.filesize if hasattr(s, 'filesize') else None),
-                            "url": s.url,
-                            "vcodec": getattr(s, 'video_codec', 'h264'),
-                            "acodec": getattr(s, 'audio_codec', 'aac')
-                        })
-
-                    return {
-                        "success": True,
-                        "url": url,
-                        "platform": platform,
-                        "title": yt.title or "YouTube Video",
-                        "thumbnail": yt.thumbnail_url,
-                        "duration": yt.length or 0,
-                        "duration_formatted": format_duration(yt.length or 0),
-                        "video_url": stream.url,
-                        "audio_url": stream.url,
-                        "formats": formats,
-                        "error": None
-                    }
-            except Exception:
-                pass
-
         return {
             "success": False,
             "url": url,
@@ -241,6 +238,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             "formats": [],
             "error": str(e)
         }
+
 
 
 
