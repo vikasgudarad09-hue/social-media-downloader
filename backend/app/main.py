@@ -7,8 +7,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import ExtractRequest, ExtractResponse
-from app.extractor import extract_media_info
+from app.extractor import extract_media_info, get_cookie_file_path
 import time
+import yt_dlp
 from collections import defaultdict
 
 app = FastAPI(
@@ -65,7 +66,34 @@ def read_root():
         "status": "online",
         "service": "Social Media Downloader API",
         "endpoints": {
-            "extract": "POST /api/extract"
+            "extract": "POST /api/extract",
+            "debug": "GET /api/debug"
+        }
+    }
+
+@app.get("/api/debug")
+def debug_info():
+    """Returns server diagnostic info – useful to verify cookies and yt-dlp version on Render."""
+    cookie_file = get_cookie_file_path()
+    cookie_status = "Not found"
+    cookie_lines = 0
+    if cookie_file and os.path.exists(cookie_file):
+        try:
+            with open(cookie_file, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = [l for l in f.readlines() if l.strip() and not l.startswith('#')]
+                cookie_lines = len(lines)
+                cookie_status = f"Loaded ({cookie_lines} cookie entries)"
+        except Exception as ex:
+            cookie_status = f"Error reading: {ex}"
+    return {
+        "python_version": sys.version,
+        "yt_dlp_version": yt_dlp.version.__version__,
+        "cookie_file": cookie_file,
+        "cookie_status": cookie_status,
+        "env_vars_set": {
+            "YOUTUBE_COOKIES_TEXT": bool(os.environ.get("YOUTUBE_COOKIES_TEXT")),
+            "COOKIES_TEXT": bool(os.environ.get("COOKIES_TEXT")),
+            "YOUTUBE_COOKIES_PATH": bool(os.environ.get("YOUTUBE_COOKIES_PATH")),
         }
     }
 
