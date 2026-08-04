@@ -436,7 +436,8 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
         video_id = extract_youtube_id(url)
         target_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else url
 
-        for client_type in ['WEB', 'MWEB', 'ANDROID', 'IOS']:
+        for client_type in ['TV', 'IOS', 'MWEB', 'WEB', 'ANDROID']:
+
             try:
                 yt = YouTube(target_url, client=client_type)
                 title = str(getattr(yt, 'title', '') or 'YouTube Video')
