@@ -107,9 +107,11 @@ document.addEventListener("DOMContentLoaded", () => {
             `<i class="fa-solid fa-clock text-xs text-amber-300"></i> ${data.platform} (>15m)` : 
             `<i class="fa-solid fa-play text-xs"></i> ${data.platform}`;
 
-        // Direct Video & Audio Buttons
+        const safeTitle = (data.title || "video").replace(/[^\w\s.-]/g, "_").substring(0, 50);
+
+        // Direct Video & Audio Buttons (via proxy-download for forced direct file save)
         if (data.video_url) {
-            downloadVideoBtn.href = data.video_url;
+            downloadVideoBtn.href = `${API_BASE_URL}/api/proxy-download?url=${encodeURIComponent(data.video_url)}&filename=${encodeURIComponent(safeTitle + '.mp4')}`;
             downloadVideoBtn.removeAttribute("disabled");
             show(downloadVideoBtn);
         } else {
@@ -117,7 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (data.audio_url) {
-            downloadAudioBtn.href = data.audio_url;
+            downloadAudioBtn.href = `${API_BASE_URL}/api/proxy-download?url=${encodeURIComponent(data.audio_url)}&filename=${encodeURIComponent(safeTitle + '.mp3')}`;
             show(downloadAudioBtn);
         } else {
             hide(downloadAudioBtn);
@@ -128,13 +130,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.formats && data.formats.length > 0) {
             data.formats.forEach((fmt) => {
                 const opt = document.createElement("option");
-                opt.value = fmt.url;
+                opt.value = `${API_BASE_URL}/api/proxy-download?url=${encodeURIComponent(fmt.url)}&filename=${encodeURIComponent(safeTitle + '_' + fmt.resolution + '.' + fmt.ext)}`;
                 const sizeInfo = fmt.filesize_approx ? ` (${fmt.filesize_approx})` : "";
                 opt.textContent = `[${fmt.ext.toUpperCase()}] ${fmt.resolution}${sizeInfo} - ID: ${fmt.format_id}`;
                 formatSelect.appendChild(opt);
             });
 
-            downloadFormatBtn.href = data.formats[0].url;
+            downloadFormatBtn.href = formatSelect.options[0].value;
             show(document.getElementById("format-options-container"));
         } else {
             hide(document.getElementById("format-options-container"));
