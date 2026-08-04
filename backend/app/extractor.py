@@ -300,8 +300,8 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         'no_warnings': True,
         'skip_download': True,
         'extract_flat': False,
-        'socket_timeout': 6,
-        'retries': 1,
+        'socket_timeout': 12,
+        'retries': 2,
         'ignoreerrors': False,
     }
 
@@ -314,72 +314,19 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
             },
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'geo_bypass': True,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept-Language': 'en-US,en;q=0.9',
-            },
-        })
-    elif platform == "TikTok":
-        base.update({
-            'format': 'best[ext=mp4]/best',
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
-                'Referer': 'https://www.tiktok.com/',
-                'Accept-Language': 'en-US,en;q=0.9',
-            },
-            'extractor_args': {'tiktok': {'api_hostname': 'api22-normal-c-alisg.tiktokv.com'}},
         })
     elif platform == "Instagram":
         base.update({
             'format': 'best[ext=mp4]/best',
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-                'Referer': 'https://www.instagram.com/',
-                'Accept-Language': 'en-US,en;q=0.9',
-            },
         })
-    elif platform == "X (Twitter)":
+    elif platform == "TikTok":
         base.update({
             'format': 'best[ext=mp4]/best',
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Referer': 'https://x.com/',
-                'Accept-Language': 'en-US,en;q=0.9',
-            },
-        })
-    elif platform == "Facebook":
-        base.update({
-            'format': 'best[ext=mp4]/best',
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Referer': 'https://www.facebook.com/',
-                'Accept-Language': 'en-US,en;q=0.9',
-            },
-        })
-    elif platform == "Reddit":
-        base.update({
-            'format': 'best[ext=mp4]/best',
-            'http_headers': {
-                'User-Agent': 'python:social-media-downloader:v1.0.0 (by /u/JPMediaSaver)',
-                'Accept-Language': 'en-US,en;q=0.9',
-            },
-        })
-    elif platform == "Pinterest":
-        base.update({
-            'format': 'best[ext=mp4]/best',
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Referer': 'https://www.pinterest.com/',
-                'Accept-Language': 'en-US,en;q=0.9',
-            },
+            'extractor_args': {'tiktok': {'api_hostname': 'api22-normal-c-alisg.tiktokv.com'}},
         })
     else:
         base.update({
             'format': 'best[ext=mp4]/best',
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept-Language': 'en-US,en;q=0.9',
-            },
         })
     return base
 
