@@ -70,11 +70,76 @@ def get_cookie_file_path() -> Optional[str]:
             return path
     return None
 
+def get_platform_headers(platform: str) -> Dict[str, str]:
+    """Get optimized HTTP headers for specific platforms to bypass bot detection."""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    if platform == "Instagram":
+        headers['Referer'] = 'https://www.instagram.com/'
+        headers['User-Agent'] = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1'
+    elif platform == "TikTok":
+        headers['Referer'] = 'https://www.tiktok.com/'
+    elif platform == "X (Twitter)":
+        headers['Referer'] = 'https://x.com/'
+    elif platform == "Facebook":
+        headers['Referer'] = 'https://www.facebook.com/'
+    elif platform == "Reddit":
+        headers['User-Agent'] = 'python:social-media-downloader:v1.0.0 (by /u/JPMediaSaver)'
+    elif platform == "Pinterest":
+        headers['Referer'] = 'https://www.pinterest.com/'
+    return headers
+
 def extract_media_info(url: str) -> Dict[str, Any]:
     """
-    Extracts video metadata and direct downloadable links using yt-dlp.
-    Does NOT download files to disk.
+    Extracts video metadata and direct downloadable links across all supported platforms.
     """
+    platform = detect_platform(url)
+    cookie_file = get_cookie_file_path()
+
+    # 1. Primary engine for YouTube: pytubefix fallback
+    if platform == "YouTube":
+        try:
+            from pytubefix import YouTube
+            yt = YouTube(url)
+            stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
+            if not stream:
+                stream = yt.streams.get_highest_resolution()
+
+            if stream and stream.url:
+                formats = []
+                for s in yt.streams.filter(file_extension='mp4')[:10]:
+                    if not getattr(s, 'url', None):
+                        continue
+                    formats.append({
+                        "format_id": str(getattr(s, 'itag', '')),
+                        "ext": "mp4",
+                        "resolution": str(getattr(s, 'resolution', None) or "Standard"),
+                        "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
+                        "url": s.url,
+                        "vcodec": getattr(s, 'video_codec', 'h264'),
+                        "acodec": getattr(s, 'audio_codec', 'aac')
+                    })
+
+                return {
+                    "success": True,
+                    "url": url,
+                    "platform": platform,
+                    "title": getattr(yt, 'title', 'YouTube Video') or "YouTube Video",
+                    "thumbnail": getattr(yt, 'thumbnail_url', None),
+                    "duration": getattr(yt, 'length', 0) or 0,
+                    "duration_formatted": format_duration(getattr(yt, 'length', 0) or 0),
+                    "video_url": stream.url,
+                    "audio_url": stream.url,
+                    "formats": formats,
+                    "error": None
+                }
+        except Exception:
+            pass
+
+    # 2. Main engine: yt-dlp with platform headers & cookies
     ydl_opts: Dict[str, Any] = {
         'quiet': True,
         'no_warnings': True,
@@ -82,13 +147,11 @@ def extract_media_info(url: str) -> Dict[str, Any]:
         'extract_flat': False,
         'format': 'best/bestvideo+bestaudio/all',
         'socket_timeout': 15,
+        'http_headers': get_platform_headers(platform),
     }
 
-    cookie_file = get_cookie_file_path()
     if cookie_file:
         ydl_opts['cookiefile'] = cookie_file
-
-    platform = detect_platform(url)
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -97,7 +160,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             if info is None:
                 raise ValueError("Could not extract info from URL")
 
-            # Handle playlists or single entry
             if 'entries' in info and info['entries']:
                 info = info['entries'][0]
 
@@ -106,7 +168,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             duration = info.get('duration') or 0
             duration_str = format_duration(duration)
 
-            # Find best video & audio links
             video_url = info.get('url')
             audio_url = None
             
@@ -133,7 +194,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
 
                 filesize = format_filesize(fmt.get('filesize') or fmt.get('filesize_approx'))
 
-                # Capture audio-only stream if present
                 if vcodec == 'none' and acodec != 'none' and not audio_url:
                     audio_url = fmt_url
 
@@ -147,7 +207,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
                     "acodec": acodec
                 })
 
-            # If no direct video url found in main info, grab highest quality format
             if not video_url and extracted_formats:
                 video_url = extracted_formats[-1]["url"]
 
@@ -161,7 +220,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
                 "duration_formatted": duration_str,
                 "video_url": video_url,
                 "audio_url": audio_url or video_url,
-                "formats": extracted_formats[:10], # Return top 10 format options
+                "formats": extracted_formats[:10],
                 "error": None
             }
 
