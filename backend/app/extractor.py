@@ -431,60 +431,66 @@ def build_formats(info: Dict):
 def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
     try:
         from pytubefix import YouTube
+
+        # Normalize YouTube Shorts and short links to watch URLs
+        video_id = extract_youtube_id(url)
+        target_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else url
+
         for client_type in ['WEB', 'MWEB', 'ANDROID', 'IOS']:
             try:
-                yt = YouTube(url, client=client_type)
+                yt = YouTube(target_url, client=client_type)
                 title = str(getattr(yt, 'title', '') or 'YouTube Video')
                 thumbnail = str(getattr(yt, 'thumbnail_url', '') or '')
+                if not thumbnail and video_id:
+                    thumbnail = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+
                 length = int(getattr(yt, 'length', 0) or 0)
 
-                stream = None
+                # Get all streams with a valid URL (handles both regular videos and Shorts adaptive streams)
+                all_streams = []
                 try:
-                    stream = yt.streams.get_highest_resolution()
+                    all_streams = [s for s in list(yt.streams) if getattr(s, 'url', None)]
                 except Exception:
                     pass
 
-                if not stream:
-                    try:
-                        stream = yt.streams.first()
-                    except Exception:
-                        pass
+                if not all_streams:
+                    continue
 
-                if stream and getattr(stream, 'url', None):
-                    formats = []
-                    try:
-                        all_streams = list(yt.streams)
-                        for s in all_streams[:10]:
-                            s_url = getattr(s, 'url', None)
-                            if not s_url:
-                                continue
-                            res_val = str(getattr(s, 'resolution', None) or getattr(s, 'quality_label', 'Standard') or "Standard")
-                            formats.append({
-                                "format_id": str(getattr(s, 'itag', '')),
-                                "ext": str(getattr(s, 'subtype', 'mp4') or 'mp4'),
-                                "resolution": res_val,
-                                "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
-                                "url": s_url,
-                                "vcodec": "h264",
-                                "acodec": "aac"
-                            })
-                    except Exception:
-                        pass
+                stream = all_streams[0]
 
-                    return {
-                        "success": True,
-                        "url": url,
-                        "platform": "YouTube",
-                        "title": title,
-                        "thumbnail": thumbnail,
-                        "duration": length,
-                        "duration_formatted": format_duration(length),
-                        "video_url": stream.url,
-                        "audio_url": stream.url,
-                        "formats": formats,
-                        "requires_ad_unlock": (length > 900),
-                        "error": None
-                    }
+                formats = []
+                try:
+                    for s in all_streams[:10]:
+                        s_url = getattr(s, 'url', None)
+                        if not s_url:
+                            continue
+                        res_val = str(getattr(s, 'resolution', None) or getattr(s, 'quality_label', 'Standard') or "Standard")
+                        formats.append({
+                            "format_id": str(getattr(s, 'itag', '')),
+                            "ext": str(getattr(s, 'subtype', 'mp4') or 'mp4'),
+                            "resolution": res_val,
+                            "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
+                            "url": s_url,
+                            "vcodec": "h264",
+                            "acodec": "aac"
+                        })
+                except Exception:
+                    pass
+
+                return {
+                    "success": True,
+                    "url": url,
+                    "platform": "YouTube",
+                    "title": title,
+                    "thumbnail": thumbnail,
+                    "duration": length,
+                    "duration_formatted": format_duration(length),
+                    "video_url": stream.url,
+                    "audio_url": stream.url,
+                    "formats": formats,
+                    "requires_ad_unlock": (length > 900),
+                    "error": None
+                }
             except Exception:
                 continue
     except Exception:
