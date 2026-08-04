@@ -40,4 +40,6 @@ class ExtractResponse(BaseModel):
     video_url: Optional[str] = None
     audio_url: Optional[str] = None
     formats: List[MediaFormat] = []
+    requires_ad_unlock: Optional[bool] = False
     error: Optional[str] = None
+

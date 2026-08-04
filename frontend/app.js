@@ -1,7 +1,5 @@
 const API_BASE_URL = "https://social-media-downloader-production-19ab.up.railway.app";
 
-
-
 document.addEventListener("DOMContentLoaded", () => {
     const extractForm = document.getElementById("extract-form");
     const urlInput = document.getElementById("url-input");
@@ -29,7 +27,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const formatSelect = document.getElementById("format-select");
     const downloadFormatBtn = document.getElementById("download-format-btn");
 
+    // Ad Unlock Modal Elements
+    const adUnlockModal = document.getElementById("ad-unlock-modal");
+    const closeAdModalBtn = document.getElementById("close-ad-modal-btn");
+    const unlockAdBtn = document.getElementById("unlock-ad-btn");
+    const adTimerText = document.getElementById("ad-timer-text");
+    const unlockBtnIcon = document.getElementById("unlock-btn-icon");
+
     let currentExtraction = null;
+    let isUnlockedForAd = false;
+    let pendingDownloadTarget = null;
+    let adCountdownInterval = null;
 
     // Paste from Clipboard
     btnPaste.addEventListener("click", async () => {
@@ -55,6 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
         hide(errorCard);
         show(loadingState);
         setButtonLoading(true);
+        isUnlockedForAd = false;
 
         try {
             const response = await fetch(`${API_BASE_URL}/api/extract`, {
@@ -91,8 +100,12 @@ document.addEventListener("DOMContentLoaded", () => {
         previewDuration.textContent = data.duration_formatted || "00:00";
         previewThumbnail.src = data.thumbnail || "https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=600&auto=format&fit=crop";
 
+        const isLongVideo = data.duration > 900 || data.requires_ad_unlock;
         metaPlatform.textContent = `Platform: ${data.platform || 'Social Media'}`;
-        previewPlatformBadge.innerHTML = `<i class="fa-solid fa-play text-xs"></i> ${data.platform}`;
+        metaQuality.textContent = isLongVideo ? "Quality: HD (Ad Lock >15m)" : "Quality: HD";
+        previewPlatformBadge.innerHTML = isLongVideo ? 
+            `<i class="fa-solid fa-clock text-xs text-amber-300"></i> ${data.platform} (>15m)` : 
+            `<i class="fa-solid fa-play text-xs"></i> ${data.platform}`;
 
         // Direct Video & Audio Buttons
         if (data.video_url) {
@@ -113,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Formats Select
         formatSelect.innerHTML = "";
         if (data.formats && data.formats.length > 0) {
-            data.formats.forEach((fmt, idx) => {
+            data.formats.forEach((fmt) => {
                 const opt = document.createElement("option");
                 opt.value = fmt.url;
                 const sizeInfo = fmt.filesize_approx ? ` (${fmt.filesize_approx})` : "";
@@ -136,6 +149,64 @@ document.addEventListener("DOMContentLoaded", () => {
             downloadFormatBtn.href = e.target.value;
         }
     });
+
+    // Intercept Download Clicks for Long Videos (>15 Mins)
+    function handleDownloadGate(e, targetUrl) {
+        const isLongVideo = currentExtraction && (currentExtraction.duration > 900 || currentExtraction.requires_ad_unlock);
+        if (isLongVideo && !isUnlockedForAd) {
+            e.preventDefault();
+            pendingDownloadTarget = targetUrl;
+            openAdUnlockModal();
+        }
+    }
+
+    downloadVideoBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadVideoBtn.href));
+    downloadAudioBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadAudioBtn.href));
+    downloadFormatBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadFormatBtn.href));
+
+    // Ad Unlock Modal Logic
+    function openAdUnlockModal() {
+        show(adUnlockModal);
+        unlockAdBtn.disabled = true;
+        unlockAdBtn.className = "w-full py-3.5 rounded-xl bg-slate-800 text-slate-400 text-xs font-bold transition flex items-center justify-center gap-2 cursor-not-allowed";
+        unlockBtnIcon.className = "fa-solid fa-lock";
+
+        let secondsLeft = 5;
+        adTimerText.textContent = `Watch ad to unlock (${secondsLeft}s)...`;
+
+        if (adCountdownInterval) clearInterval(adCountdownInterval);
+
+        adCountdownInterval = setInterval(() => {
+            secondsLeft--;
+            if (secondsLeft > 0) {
+                adTimerText.textContent = `Watch ad to unlock (${secondsLeft}s)...`;
+            } else {
+                clearInterval(adCountdownInterval);
+                adTimerText.textContent = "🔓 Unlock & Download Now";
+                unlockBtnIcon.className = "fa-solid fa-unlock text-emerald-400";
+                unlockAdBtn.disabled = false;
+                unlockAdBtn.className = "w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer animate-pulse";
+            }
+        }, 1000);
+    }
+
+    unlockAdBtn.addEventListener("click", () => {
+        isUnlockedForAd = true;
+        hide(adUnlockModal);
+        showToast("Download unlocked after ad view!", "success");
+
+        if (pendingDownloadTarget) {
+            window.open(pendingDownloadTarget, "_blank");
+            pendingDownloadTarget = null;
+        }
+    });
+
+    if (closeAdModalBtn) {
+        closeAdModalBtn.addEventListener("click", () => {
+            if (adCountdownInterval) clearInterval(adCountdownInterval);
+            hide(adUnlockModal);
+        });
+    }
 
     // Copy Media Link
     copyLinkBtn.addEventListener("click", () => {
@@ -167,8 +238,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Helper functions
-    function show(el) { el.classList.remove("hidden"); }
-    function hide(el) { el.classList.add("hidden"); }
+    function show(el) { if (el) el.classList.remove("hidden"); }
+    function hide(el) { if (el) el.classList.add("hidden"); }
 
     function setButtonLoading(isLoading) {
         if (isLoading) {

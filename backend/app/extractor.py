@@ -300,8 +300,8 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         'no_warnings': True,
         'skip_download': True,
         'extract_flat': False,
-        'socket_timeout': 15,
-        'retries': 2,
+        'socket_timeout': 6,
+        'retries': 1,
         'ignoreerrors': False,
     }
 
@@ -471,6 +471,7 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
                         "video_url": stream.url,
                         "audio_url": stream.url,
                         "formats": formats,
+                        "requires_ad_unlock": (length > 900),
                         "error": None
                     }
             except Exception:
@@ -519,6 +520,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
                 "video_url": video_url,
                 "audio_url": audio_url or video_url,
                 "formats": extracted_formats[-10:],
+                "requires_ad_unlock": (duration > 900),
                 "error": None,
             }
     except Exception as e:
