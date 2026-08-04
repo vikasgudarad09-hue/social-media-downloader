@@ -69,15 +69,18 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         base.update({
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['tv_embedded', 'android', 'web'],
-                    'skip': ['webpage'],
+                    # Try multiple clients in order — ios and android_embedded
+                    # are least likely to be bot-detected on cloud IPs
+                    'player_client': ['ios', 'android_embedded', 'tv_embedded', 'android', 'web'],
                 }
             },
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'geo_bypass': True,
             'http_headers': {
-                'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
+                'User-Agent': 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X)',
                 'Accept-Language': 'en-US,en;q=0.9',
             },
+
         })
 
     elif platform == "TikTok":
