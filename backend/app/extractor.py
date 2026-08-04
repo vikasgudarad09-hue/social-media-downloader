@@ -226,7 +226,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
 
     except Exception as e:
         err_msg = str(e)
-        if any(w in err_msg.lower() for w in ["sign in", "bot", "confirm", "login"]):
+        if any(w in err_msg.lower() for w in ["sign in", "bot", "confirm", "login", "empty media response", "ip address is blocked"]):
             err_msg = "Unable to extract video at the moment. Please verify the URL and try again."
 
         return {
