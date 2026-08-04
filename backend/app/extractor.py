@@ -109,6 +109,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
         'extract_flat': False,
         'format': 'best/bestvideo+bestaudio/all',
         'socket_timeout': 15,
+        'js_runtimes': {'node': {}},
         'http_headers': get_platform_headers(platform),
     }
 
