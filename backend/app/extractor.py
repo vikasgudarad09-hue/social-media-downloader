@@ -79,6 +79,11 @@ def extract_media_info(url: str) -> Dict[str, Any]:
         'extract_flat': False,
         'format': 'best/bestvideo+bestaudio/all',
         'socket_timeout': 15,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web', 'mweb']
+            }
+        }
     }
 
     cookie_file = get_cookie_file_path()
@@ -163,6 +168,10 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             }
 
     except Exception as e:
+        err_msg = str(e)
+        if any(w in err_msg.lower() for w in ["sign in", "bot", "confirm", "login"]):
+            err_msg = "Unable to extract video at the moment. Please verify the URL and try again."
+
         return {
             "success": False,
             "url": url,
@@ -174,5 +183,5 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             "video_url": None,
             "audio_url": None,
             "formats": [],
-            "error": str(e)
+            "error": err_msg
         }
