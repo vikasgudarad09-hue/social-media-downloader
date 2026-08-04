@@ -101,46 +101,45 @@ def extract_media_info(url: str) -> Dict[str, Any]:
     platform = detect_platform(url)
     cookie_file = get_cookie_file_path()
 
-    # 1. Primary engine for YouTube: pytubefix with multi-client fallbacks (ANDROID, MWEB, WEB, TV)
+    # 1. Primary engine for YouTube: pytubefix (bypasses bot checks cleanly)
     if platform == "YouTube":
-        for client_name in ['ANDROID', 'MWEB', 'WEB', 'TV']:
-            try:
-                from pytubefix import YouTube
-                yt = YouTube(url, client=client_name)
-                stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
-                if not stream:
-                    stream = yt.streams.get_highest_resolution()
+        try:
+            from pytubefix import YouTube
+            yt = YouTube(url)
+            stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
+            if not stream:
+                stream = yt.streams.get_highest_resolution()
 
-                if stream and stream.url:
-                    formats = []
-                    for s in yt.streams.filter(file_extension='mp4')[:10]:
-                        if not s.url:
-                            continue
-                        formats.append({
-                            "format_id": str(s.itag),
-                            "ext": "mp4",
-                            "resolution": str(getattr(s, 'resolution', None) or "Standard"),
-                            "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
-                            "url": s.url,
-                            "vcodec": getattr(s, 'video_codec', 'h264'),
-                            "acodec": getattr(s, 'audio_codec', 'aac')
-                        })
+            if stream and stream.url:
+                formats = []
+                for s in yt.streams.filter(file_extension='mp4')[:10]:
+                    if not s.url:
+                        continue
+                    formats.append({
+                        "format_id": str(s.itag),
+                        "ext": "mp4",
+                        "resolution": str(getattr(s, 'resolution', None) or "Standard"),
+                        "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
+                        "url": s.url,
+                        "vcodec": getattr(s, 'video_codec', 'h264'),
+                        "acodec": getattr(s, 'audio_codec', 'aac')
+                    })
 
-                    return {
-                        "success": True,
-                        "url": url,
-                        "platform": platform,
-                        "title": yt.title or "YouTube Video",
-                        "thumbnail": yt.thumbnail_url,
-                        "duration": yt.length or 0,
-                        "duration_formatted": format_duration(yt.length or 0),
-                        "video_url": stream.url,
-                        "audio_url": stream.url,
-                        "formats": formats,
-                        "error": None
-                    }
-            except Exception:
-                continue
+                return {
+                    "success": True,
+                    "url": url,
+                    "platform": platform,
+                    "title": yt.title or "YouTube Video",
+                    "thumbnail": yt.thumbnail_url,
+                    "duration": yt.length or 0,
+                    "duration_formatted": format_duration(yt.length or 0),
+                    "video_url": stream.url,
+                    "audio_url": stream.url,
+                    "formats": formats,
+                    "error": None
+                }
+        except Exception:
+            pass
 
     # 2. Secondary engine: yt-dlp for all platforms (Instagram, TikTok, Facebook, Twitter, Reddit, Pinterest)
     ydl_opts: Dict[str, Any] = {
