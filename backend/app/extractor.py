@@ -79,11 +79,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
         'extract_flat': False,
         'format': 'best/bestvideo+bestaudio/all',
         'socket_timeout': 15,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'web', 'mweb']
-            }
-        }
     }
 
     cookie_file = get_cookie_file_path()
