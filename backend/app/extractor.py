@@ -563,9 +563,12 @@ import time
 _extraction_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
 
 def extract_media_info(url: str) -> Dict[str, Any]:
+    clean_url = url.strip()
+    if "instagram.com" in clean_url.lower():
+        clean_url = normalize_instagram_url(clean_url)
+
     # Check cache first
     now = time.time()
-    clean_url = url.strip()
     if clean_url in _extraction_cache:
         ts, cached_res = _extraction_cache[clean_url]
         if now - ts < 900:  # 15 minutes TTL
@@ -577,10 +580,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
     return res
 
 def _do_extract_media_info(url: str) -> Dict[str, Any]:
-    # Normalize Instagram share links (/share/reel/ -> /reel/)
-    if "instagram.com" in url.lower():
-        url = normalize_instagram_url(url)
-
     platform = detect_platform(url)
 
     # ── TikTok Engine 1: TikWM (fast 0.3s) ──
