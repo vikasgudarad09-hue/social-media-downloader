@@ -41,7 +41,17 @@ def format_filesize(bytes_val: Optional[int]) -> Optional[str]:
     return f"{bytes_val:.1f} TB"
 
 def get_cookie_file_path() -> Optional[str]:
-    """Check for cookies file in standard locations or via env var."""
+    """Check for cookies file in standard locations, or write from YOUTUBE_COOKIES_TEXT / COOKIES_TEXT env var."""
+    cookies_text = os.environ.get("YOUTUBE_COOKIES_TEXT") or os.environ.get("COOKIES_TEXT")
+    if cookies_text and len(cookies_text.strip()) > 10:
+        env_cookie_file = os.path.join(os.path.dirname(__file__), "..", "runtime_cookies.txt")
+        try:
+            with open(env_cookie_file, "w", encoding="utf-8") as f:
+                f.write(cookies_text.strip())
+            return env_cookie_file
+        except Exception:
+            pass
+
     env_path = os.environ.get("YOUTUBE_COOKIES_PATH") or os.environ.get("COOKIES_FILE")
     if env_path and os.path.exists(env_path):
         return env_path
