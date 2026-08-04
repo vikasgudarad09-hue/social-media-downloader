@@ -8,6 +8,9 @@ def test_detect_platform():
     assert detect_platform("https://www.tiktok.com/@user/video/123456789") == "TikTok"
     assert detect_platform("https://x.com/user/status/123456789") == "X (Twitter)"
     assert detect_platform("https://twitter.com/user/status/123456789") == "X (Twitter)"
+    assert detect_platform("https://www.facebook.com/watch/?v=123456") == "Facebook"
+    assert detect_platform("https://www.pinterest.com/pin/123456/") == "Pinterest"
+    assert detect_platform("https://www.reddit.com/r/videos/comments/12345/") == "Reddit"
     assert detect_platform("https://example.com/video") == "Social Media"
 
 def test_format_duration():
