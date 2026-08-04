@@ -47,43 +47,13 @@ def format_filesize(bytes_val: Optional[int]) -> Optional[str]:
     return f"{bytes_val:.1f} TB"
 
 # ─────────────────────────────────────────────
-# Cookie helper
-# ─────────────────────────────────────────────
-def get_cookie_file_path() -> Optional[str]:
-    """Write cookies from env var, or locate cookies.txt file on disk."""
-    cookies_text = os.environ.get("YOUTUBE_COOKIES_TEXT") or os.environ.get("COOKIES_TEXT")
-    if cookies_text and len(cookies_text.strip()) > 10:
-        env_cookie_file = os.path.join(os.path.dirname(__file__), "..", "runtime_cookies.txt")
-        try:
-            raw_text = cookies_text.strip().replace("\\n", "\n")
-            with open(env_cookie_file, "w", encoding="utf-8") as f:
-                f.write(raw_text)
-            return env_cookie_file
-        except Exception:
-            pass
-
-    env_path = os.environ.get("YOUTUBE_COOKIES_PATH") or os.environ.get("COOKIES_FILE")
-    if env_path and os.path.exists(env_path):
-        return env_path
-
-    for path in [
-        "cookies.txt",
-        "backend/cookies.txt",
-        "../cookies.txt",
-        os.path.join(os.path.dirname(__file__), "..", "cookies.txt"),
-    ]:
-        if os.path.exists(path):
-            return path
-    return None
-
-# ─────────────────────────────────────────────
 # Build yt-dlp options per platform
 # ─────────────────────────────────────────────
-def build_ydl_opts(platform: str, cookie_file: Optional[str]) -> Dict[str, Any]:
+def build_ydl_opts(platform: str) -> Dict[str, Any]:
     """
     Return yt-dlp opts tuned for each platform.
-    Key trick: YouTube works best with the 'android' or 'tv_embedded' extractor
-    client which bypasses most bot-detection without needing cookies.
+    YouTube uses the tv_embedded + android client to bypass bot detection
+    on cloud server IPs — no cookies required.
     """
     base = {
         'quiet': True,
@@ -92,16 +62,11 @@ def build_ydl_opts(platform: str, cookie_file: Optional[str]) -> Dict[str, Any]:
         'extract_flat': False,
         'socket_timeout': 20,
         'retries': 3,
-        'fragment_retries': 3,
         'ignoreerrors': False,
     }
 
-    if cookie_file:
-        base['cookiefile'] = cookie_file
-
     if platform == "YouTube":
         base.update({
-            # Use the tv_embedded client – it never triggers bot detection on servers
             'extractor_args': {
                 'youtube': {
                     'player_client': ['tv_embedded', 'android', 'web'],
@@ -218,8 +183,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
     Uses yt-dlp with platform-specific client spoofing to bypass bot detection.
     """
     platform = detect_platform(url)
-    cookie_file = get_cookie_file_path()
-    ydl_opts = build_ydl_opts(platform, cookie_file)
+    ydl_opts = build_ydl_opts(platform)
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -305,21 +269,20 @@ def extract_media_info(url: str) -> Dict[str, Any]:
                 "duration_formatted": duration_str,
                 "video_url": video_url,
                 "audio_url": audio_url or video_url,
-                "formats": extracted_formats[-10:],  # last 10 = highest quality first
+                "formats": extracted_formats[-10:],
                 "error": None,
             }
 
     except Exception as e:
         err_msg = str(e)
 
-        # Make error message user-friendly
         lower_err = err_msg.lower()
         if any(w in lower_err for w in [
             "sign in", "bot", "confirm", "login", "empty media response",
             "ip address", "blocked", "http error 403", "http error 429",
             "precondition", "unavailable", "private video", "age",
         ]):
-            err_msg = "Unable to extract this video. The platform may be blocking server requests. Try a different video or add cookies."
+            err_msg = "Unable to extract this video. The platform may be blocking server requests. Try a different video."
         elif "unsupported url" in lower_err:
             err_msg = "This URL is not supported. Please paste a direct video link."
         elif "video unavailable" in lower_err or "this video is not available" in lower_err:
