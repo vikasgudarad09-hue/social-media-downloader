@@ -1,7 +1,10 @@
 import yt_dlp
 import re
 import os
-from typing import Dict, Any, Optional
+import urllib.request
+import urllib.error
+import json
+from typing import Dict, Any, Optional, List
 
 # ─────────────────────────────────────────────
 # Platform detection
@@ -47,14 +50,138 @@ def format_filesize(bytes_val: Optional[int]) -> Optional[str]:
     return f"{bytes_val:.1f} TB"
 
 # ─────────────────────────────────────────────
+# YouTube Video ID extractor
+# ─────────────────────────────────────────────
+def extract_youtube_id(url: str) -> Optional[str]:
+    patterns = [
+        r'(?:v=|/)([0-9A-Za-z_-]{11})',
+        r'youtu\.be/([0-9A-Za-z_-]{11})',
+        r'embed/([0-9A-Za-z_-]{11})',
+        r'shorts/([0-9A-Za-z_-]{11})',
+    ]
+    for p in patterns:
+        m = re.search(p, url)
+        if m:
+            return m.group(1)
+    return None
+
+# ─────────────────────────────────────────────
+# Invidious API fallback for YouTube
+# Multiple public instances — tries each until one works
+# ─────────────────────────────────────────────
+INVIDIOUS_INSTANCES = [
+    "https://invidious.nerdvpn.de",
+    "https://iv.datura.network",
+    "https://invidious.privacydev.net",
+    "https://yt.cdaut.de",
+    "https://invidious.perennialte.ch",
+    "https://invidious.fdn.fr",
+    "https://invidious.lunar.icu",
+    "https://vid.puffyan.us",
+]
+
+def try_invidious(video_id: str) -> Optional[Dict[str, Any]]:
+    """Try multiple Invidious instances to get YouTube video data."""
+    for instance in INVIDIOUS_INSTANCES:
+        try:
+            api_url = f"{instance}/api/v1/videos/{video_id}?fields=title,videoThumbnails,lengthSeconds,adaptiveFormats,formatStreams"
+            req = urllib.request.Request(
+                api_url,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (compatible; SocialDownloader/1.0)',
+                    'Accept': 'application/json',
+                },
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode('utf-8'))
+                    return data
+        except Exception:
+            continue
+    return None
+
+def parse_invidious_response(data: Dict, video_id: str) -> Dict[str, Any]:
+    """Convert Invidious API response into our standard format."""
+    title = data.get('title', 'YouTube Video')
+    duration = data.get('lengthSeconds', 0)
+
+    # Best thumbnail
+    thumbs = data.get('videoThumbnails', [])
+    thumbnail = None
+    for t in thumbs:
+        if t.get('quality') in ('maxres', 'sddefault', 'high', 'medium'):
+            thumbnail = t.get('url')
+            break
+    if not thumbnail and thumbs:
+        thumbnail = thumbs[0].get('url')
+
+    # Fix relative thumbnail URLs
+    if thumbnail and thumbnail.startswith('/'):
+        thumbnail = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+
+    formats = []
+    video_url = None
+    audio_url = None
+
+    # formatStreams = combined audio+video (easiest to download)
+    for fmt in data.get('formatStreams', []):
+        url = fmt.get('url')
+        if not url:
+            continue
+        res = fmt.get('resolution', fmt.get('qualityLabel', 'Standard'))
+        formats.append({
+            "format_id": fmt.get('itag', ''),
+            "ext": "mp4",
+            "resolution": res,
+            "filesize_approx": None,
+            "url": url,
+            "vcodec": "h264",
+            "acodec": "aac",
+        })
+        if not video_url:
+            video_url = url
+
+    # adaptiveFormats = separate video/audio streams
+    for fmt in data.get('adaptiveFormats', []):
+        url = fmt.get('url')
+        if not url:
+            continue
+        mime = fmt.get('type', '')
+        is_video = mime.startswith('video/')
+        is_audio = mime.startswith('audio/')
+        res = fmt.get('resolution', fmt.get('qualityLabel', 'audio'))
+        ext = 'mp4' if is_video else 'webm' if 'webm' in mime else 'm4a'
+
+        formats.append({
+            "format_id": str(fmt.get('itag', '')),
+            "ext": ext,
+            "resolution": res,
+            "filesize_approx": format_filesize(fmt.get('contentLength')),
+            "url": url,
+            "vcodec": "h264" if is_video else "none",
+            "acodec": "none" if is_video else "aac",
+        })
+
+        if is_audio and not audio_url:
+            audio_url = url
+
+    return {
+        "success": True,
+        "platform": "YouTube",
+        "title": title,
+        "thumbnail": thumbnail,
+        "duration": duration,
+        "duration_formatted": format_duration(duration),
+        "video_url": video_url,
+        "audio_url": audio_url or video_url,
+        "formats": formats[-10:],
+        "error": None,
+    }
+
+# ─────────────────────────────────────────────
 # Build yt-dlp options per platform
 # ─────────────────────────────────────────────
 def build_ydl_opts(platform: str) -> Dict[str, Any]:
-    """
-    Return yt-dlp opts tuned for each platform.
-    YouTube uses the tv_embedded + android client to bypass bot detection
-    on cloud server IPs — no cookies required.
-    """
     base = {
         'quiet': True,
         'no_warnings': True,
@@ -69,8 +196,6 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         base.update({
             'extractor_args': {
                 'youtube': {
-                    # Try multiple clients in order — ios and android_embedded
-                    # are least likely to be bot-detected on cloud IPs
                     'player_client': ['ios', 'android_embedded', 'tv_embedded', 'android', 'web'],
                 }
             },
@@ -80,7 +205,6 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
                 'User-Agent': 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X)',
                 'Accept-Language': 'en-US,en;q=0.9',
             },
-
         })
 
     elif platform == "TikTok":
@@ -178,16 +302,65 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
     return base
 
 # ─────────────────────────────────────────────
+# Format builder from yt-dlp info
+# ─────────────────────────────────────────────
+def build_formats(info: Dict) -> tuple:
+    raw_formats = info.get('formats') or []
+    extracted_formats = []
+    video_url = None
+    audio_url = None
+
+    for fmt in raw_formats:
+        fmt_url = fmt.get('url')
+        if not fmt_url:
+            continue
+
+        ext = fmt.get('ext', 'mp4')
+        format_id = str(fmt.get('format_id', ''))
+
+        if ext.lower() in ['mhtml', 'sb'] or format_id.startswith('sb') or 'storyboard' in format_id.lower():
+            continue
+
+        vcodec = fmt.get('vcodec', 'none')
+        acodec = fmt.get('acodec', 'none')
+
+        res = fmt.get('resolution')
+        if not res or res == 'none':
+            w = fmt.get('width')
+            h = fmt.get('height')
+            res = f"{w}x{h}" if (w and h) else fmt.get('format_note', 'Standard')
+
+        filesize = format_filesize(fmt.get('filesize') or fmt.get('filesize_approx'))
+
+        if vcodec != 'none' and not video_url:
+            video_url = fmt_url
+        if vcodec == 'none' and acodec != 'none' and not audio_url:
+            audio_url = fmt_url
+
+        extracted_formats.append({
+            "format_id": format_id,
+            "ext": ext,
+            "resolution": res,
+            "filesize_approx": filesize,
+            "url": fmt_url,
+            "vcodec": vcodec,
+            "acodec": acodec,
+        })
+
+    if not video_url:
+        video_url = info.get('url') or (extracted_formats[-1]["url"] if extracted_formats else None)
+
+    return extracted_formats, video_url, audio_url
+
+# ─────────────────────────────────────────────
 # Main extractor
 # ─────────────────────────────────────────────
 def extract_media_info(url: str) -> Dict[str, Any]:
-    """
-    Extract video metadata and direct download links for all supported platforms.
-    Uses yt-dlp with platform-specific client spoofing to bypass bot detection.
-    """
     platform = detect_platform(url)
     ydl_opts = build_ydl_opts(platform)
+    ytdlp_error = None
 
+    # ── Step 1: Try yt-dlp ──
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -195,72 +368,16 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             if info is None:
                 raise ValueError("Could not extract info from URL")
 
-            # Handle playlist / search results
             if 'entries' in info and info['entries']:
                 info = info['entries'][0]
 
             title = info.get('title') or f"{platform} Video"
-
-            # Best thumbnail
             thumbnail = info.get('thumbnail')
             if not thumbnail and info.get('thumbnails'):
                 thumbnail = info['thumbnails'][-1].get('url')
 
             duration = info.get('duration') or 0
-            duration_str = format_duration(duration)
-
-            # Build format list (filter out storyboards/MHTML)
-            raw_formats = info.get('formats') or []
-            extracted_formats = []
-            video_url = None
-            audio_url = None
-
-            for fmt in raw_formats:
-                fmt_url = fmt.get('url')
-                if not fmt_url:
-                    continue
-
-                ext = fmt.get('ext', 'mp4')
-                format_id = str(fmt.get('format_id', ''))
-
-                # Skip storyboard / preview sprite formats
-                if ext.lower() in ['mhtml', 'sb'] or format_id.startswith('sb') or 'storyboard' in format_id.lower():
-                    continue
-
-                vcodec = fmt.get('vcodec', 'none')
-                acodec = fmt.get('acodec', 'none')
-
-                # Resolution string
-                res = fmt.get('resolution')
-                if not res or res == 'none':
-                    w = fmt.get('width')
-                    h = fmt.get('height')
-                    if w and h:
-                        res = f"{w}x{h}"
-                    else:
-                        res = fmt.get('format_note', 'Standard')
-
-                filesize = format_filesize(fmt.get('filesize') or fmt.get('filesize_approx'))
-
-                # Track best video and audio URLs
-                if vcodec != 'none' and not video_url:
-                    video_url = fmt_url
-                if vcodec == 'none' and acodec != 'none' and not audio_url:
-                    audio_url = fmt_url
-
-                extracted_formats.append({
-                    "format_id": format_id,
-                    "ext": ext,
-                    "resolution": res,
-                    "filesize_approx": filesize,
-                    "url": fmt_url,
-                    "vcodec": vcodec,
-                    "acodec": acodec,
-                })
-
-            # Fallback: use info-level URL
-            if not video_url:
-                video_url = info.get('url') or (extracted_formats[-1]["url"] if extracted_formats else None)
+            extracted_formats, video_url, audio_url = build_formats(info)
 
             return {
                 "success": True,
@@ -269,7 +386,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
                 "title": title,
                 "thumbnail": thumbnail,
                 "duration": duration,
-                "duration_formatted": duration_str,
+                "duration_formatted": format_duration(duration),
                 "video_url": video_url,
                 "audio_url": audio_url or video_url,
                 "formats": extracted_formats[-10:],
@@ -277,18 +394,29 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             }
 
     except Exception as e:
-        err_msg = str(e)
+        ytdlp_error = str(e)
 
-        return {
-            "success": False,
-            "url": url,
-            "platform": platform,
-            "title": "Extraction Failed",
-            "thumbnail": None,
-            "duration": 0,
-            "duration_formatted": "00:00",
-            "video_url": None,
-            "audio_url": None,
-            "formats": [],
-            "error": err_msg,
-        }
+    # ── Step 2: YouTube fallback via Invidious (no sign-in required) ──
+    if platform == "YouTube":
+        video_id = extract_youtube_id(url)
+        if video_id:
+            inv_data = try_invidious(video_id)
+            if inv_data:
+                result = parse_invidious_response(inv_data, video_id)
+                result["url"] = url
+                return result
+
+    # ── Step 3: Total failure ──
+    return {
+        "success": False,
+        "url": url,
+        "platform": platform,
+        "title": "Extraction Failed",
+        "thumbnail": None,
+        "duration": 0,
+        "duration_formatted": "00:00",
+        "video_url": None,
+        "audio_url": None,
+        "formats": [],
+        "error": ytdlp_error or "Could not extract media from this URL.",
+    }
