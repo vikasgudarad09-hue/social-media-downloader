@@ -491,6 +491,72 @@ def try_tikwm(url: str) -> Optional[Dict[str, Any]]:
     return None
 
 # ─────────────────────────────────────────────
+# Instagram URL Normalizer & Embed Engine
+# ─────────────────────────────────────────────
+def normalize_instagram_url(url: str) -> str:
+    # Handle mobile share links like /share/reel/ or /share/p/
+    m = re.search(r'instagram\.com/(?:share/)?(reel|p|tv)/([0-9A-Za-z_-]+)', url)
+    if m:
+        media_type = m.group(1)
+        shortcode = m.group(2)
+        return f"https://www.instagram.com/{media_type}/{shortcode}/"
+    return url
+
+def try_instagram_embed(url: str) -> Optional[Dict[str, Any]]:
+    m = re.search(r'instagram\.com/(?:share/)?(?:reel|p|tv)/([0-9A-Za-z_-]+)', url)
+    if not m:
+        return None
+    shortcode = m.group(1)
+    embed_url = f"https://www.instagram.com/p/{shortcode}/embed/captioned/"
+
+    try:
+        req = urllib.request.Request(embed_url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+        })
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            html = resp.read().decode('utf-8', errors='ignore')
+
+            video_urls = re.findall(r'video_url["\']?\s*:\s*["\']([^"\']+)["\']', html)
+            if not video_urls:
+                video_urls = re.findall(r'https?://[^\s"\'\\]+\.mp4[^\s"\'\\]*', html)
+
+            thumbnail_urls = re.findall(r'thumbnail_src["\']?\s*:\s*["\']([^"\']+)["\']', html)
+            if not thumbnail_urls:
+                thumbnail_urls = re.findall(r'display_url["\']?\s*:\s*["\']([^"\']+)["\']', html)
+
+            if video_urls:
+                clean_video = video_urls[0].replace('\\u0026', '&').replace('\\/', '/')
+                clean_thumb = thumbnail_urls[0].replace('\\u0026', '&').replace('\\/', '/') if thumbnail_urls else None
+
+                return {
+                    "success": True,
+                    "url": url,
+                    "platform": "Instagram",
+                    "title": f"Instagram Video ({shortcode})",
+                    "thumbnail": clean_thumb,
+                    "duration": 0,
+                    "duration_formatted": "00:00",
+                    "video_url": clean_video,
+                    "audio_url": clean_video,
+                    "formats": [{
+                        "format_id": "hd",
+                        "ext": "mp4",
+                        "resolution": "HD",
+                        "filesize_approx": None,
+                        "url": clean_video,
+                        "vcodec": "h264",
+                        "acodec": "aac"
+                    }],
+                    "requires_ad_unlock": False,
+                    "error": None
+                }
+    except Exception:
+        pass
+    return None
+
+# ─────────────────────────────────────────────
 # In-memory extraction LRU cache (TTL = 15 mins)
 # ─────────────────────────────────────────────
 import time
@@ -511,6 +577,10 @@ def extract_media_info(url: str) -> Dict[str, Any]:
     return res
 
 def _do_extract_media_info(url: str) -> Dict[str, Any]:
+    # Normalize Instagram share links (/share/reel/ -> /reel/)
+    if "instagram.com" in url.lower():
+        url = normalize_instagram_url(url)
+
     platform = detect_platform(url)
 
     # ── TikTok Engine 1: TikWM (fast 0.3s) ──
@@ -558,6 +628,12 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
             }
     except Exception as e:
         ytdlp_error = str(e)
+
+    # ── Instagram Engine 2: Embed Scraper Fallback ──
+    if platform == "Instagram":
+        ig_res = try_instagram_embed(url)
+        if ig_res:
+            return ig_res
 
     # ── YouTube Engine 3 & 4: Piped & Invidious ──
     if platform == "YouTube":
