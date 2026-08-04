@@ -115,9 +115,15 @@ def extract_media_info(url: str) -> Dict[str, Any]:
                 if not fmt_url:
                     continue
 
+                ext = fmt.get('ext', 'mp4')
+                format_id = str(fmt.get('format_id', ''))
+
+                # Filter out mhtml storyboard images / preview sprites
+                if ext.lower() in ['mhtml', 'sb'] or format_id.startswith('sb'):
+                    continue
+
                 vcodec = fmt.get('vcodec', 'none')
                 acodec = fmt.get('acodec', 'none')
-                ext = fmt.get('ext', 'mp4')
                 res = fmt.get('resolution') or f"{fmt.get('width', '')}x{fmt.get('height', '')}"
                 if res == "x":
                     res = fmt.get('format_note', 'Standard')
