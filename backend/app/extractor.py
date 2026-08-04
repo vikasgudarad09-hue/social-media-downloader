@@ -46,8 +46,11 @@ def get_cookie_file_path() -> Optional[str]:
     if cookies_text and len(cookies_text.strip()) > 10:
         env_cookie_file = os.path.join(os.path.dirname(__file__), "..", "runtime_cookies.txt")
         try:
+            raw_text = cookies_text.strip()
+            if "\\n" in raw_text:
+                raw_text = raw_text.replace("\\n", "\n")
             with open(env_cookie_file, "w", encoding="utf-8") as f:
-                f.write(cookies_text.strip())
+                f.write(raw_text)
             return env_cookie_file
         except Exception:
             pass
