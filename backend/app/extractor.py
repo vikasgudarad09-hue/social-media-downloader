@@ -431,34 +431,45 @@ def build_formats(info: Dict):
 def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
     try:
         from pytubefix import YouTube
-        for client_type in ['WEB', 'MWEB', 'IOS']:
+        for client_type in ['WEB', 'MWEB', 'ANDROID', 'IOS']:
             try:
                 yt = YouTube(url, client=client_type)
-                title = getattr(yt, 'title', None)
-                if not title:
-                    continue
-                thumbnail = getattr(yt, 'thumbnail_url', None)
-                length = getattr(yt, 'length', 0) or 0
+                title = str(getattr(yt, 'title', '') or 'YouTube Video')
+                thumbnail = str(getattr(yt, 'thumbnail_url', '') or '')
+                length = int(getattr(yt, 'length', 0) or 0)
 
-                stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
-                if not stream:
+                stream = None
+                try:
                     stream = yt.streams.get_highest_resolution()
+                except Exception:
+                    pass
+
+                if not stream:
+                    try:
+                        stream = yt.streams.first()
+                    except Exception:
+                        pass
 
                 if stream and getattr(stream, 'url', None):
                     formats = []
-                    for s in yt.streams.filter(file_extension='mp4')[:10]:
-                        s_url = getattr(s, 'url', None)
-                        if not s_url:
-                            continue
-                        formats.append({
-                            "format_id": str(getattr(s, 'itag', '')),
-                            "ext": "mp4",
-                            "resolution": str(getattr(s, 'resolution', None) or "Standard"),
-                            "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
-                            "url": s_url,
-                            "vcodec": getattr(s, 'video_codec', 'h264'),
-                            "acodec": getattr(s, 'audio_codec', 'aac')
-                        })
+                    try:
+                        all_streams = list(yt.streams)
+                        for s in all_streams[:10]:
+                            s_url = getattr(s, 'url', None)
+                            if not s_url:
+                                continue
+                            res_val = str(getattr(s, 'resolution', None) or getattr(s, 'quality_label', 'Standard') or "Standard")
+                            formats.append({
+                                "format_id": str(getattr(s, 'itag', '')),
+                                "ext": str(getattr(s, 'subtype', 'mp4') or 'mp4'),
+                                "resolution": res_val,
+                                "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
+                                "url": s_url,
+                                "vcodec": "h264",
+                                "acodec": "aac"
+                            })
+                    except Exception:
+                        pass
 
                     return {
                         "success": True,
