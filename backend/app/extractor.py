@@ -97,12 +97,11 @@ def get_platform_headers(platform: str) -> Dict[str, str]:
 def extract_media_info(url: str) -> Dict[str, Any]:
     """
     Extracts video metadata and direct downloadable links using yt-dlp across all supported platforms.
-    Includes robust fallback strategies for bot-detection and platform-specific restrictions.
     """
     platform = detect_platform(url)
     cookie_file = get_cookie_file_path()
 
-    base_opts: Dict[str, Any] = {
+    ydl_opts: Dict[str, Any] = {
         'quiet': True,
         'no_warnings': True,
         'skip_download': True,
@@ -114,131 +113,94 @@ def extract_media_info(url: str) -> Dict[str, Any]:
     }
 
     if cookie_file:
-        base_opts['cookiefile'] = cookie_file
+        ydl_opts['cookiefile'] = cookie_file
 
-    # Platform specific strategy fallbacks
-    strategies = [None]
-    if platform == "YouTube":
-        strategies = [
-            ['ios', 'android', 'mweb'],
-            ['android', 'web'],
-            ['tv', 'mweb'],
-        ]
-    elif platform in ("Instagram", "TikTok", "Facebook"):
-        strategies = [None, "mobile_ua_fallback"]
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            
+            if info is None:
+                raise ValueError("Could not extract info from URL")
 
-    last_exception = None
+            # Handle playlists or multi-video entries
+            if 'entries' in info and info['entries']:
+                info = info['entries'][0]
 
-    for strategy in strategies:
-        ydl_opts = base_opts.copy()
+            title = info.get('title') or f"{platform} Content"
+            thumbnail = info.get('thumbnail') or (info.get('thumbnails')[-1].get('url') if info.get('thumbnails') else None)
+            duration = info.get('duration') or 0
+            duration_str = format_duration(duration)
 
-        if platform == "YouTube" and isinstance(strategy, list):
-            ydl_opts['extractor_args'] = {
-                'youtube': {
-                    'player_client': strategy,
-                }
+            # Find best video & audio links
+            video_url = info.get('url')
+            audio_url = None
+            
+            extracted_formats = []
+            raw_formats = info.get('formats') or []
+
+            for fmt in raw_formats:
+                fmt_url = fmt.get('url')
+                if not fmt_url:
+                    continue
+
+                vcodec = fmt.get('vcodec', 'none')
+                acodec = fmt.get('acodec', 'none')
+                ext = fmt.get('ext', 'mp4')
+                res = fmt.get('resolution') or f"{fmt.get('width', '')}x{fmt.get('height', '')}"
+                if res == "x" or not res:
+                    res = fmt.get('format_note', 'Standard')
+
+                filesize = format_filesize(fmt.get('filesize') or fmt.get('filesize_approx'))
+
+                if vcodec == 'none' and acodec != 'none' and not audio_url:
+                    audio_url = fmt_url
+
+                extracted_formats.append({
+                    "format_id": str(fmt.get('format_id', '')),
+                    "ext": ext,
+                    "resolution": res,
+                    "filesize_approx": filesize,
+                    "url": fmt_url,
+                    "vcodec": vcodec,
+                    "acodec": acodec
+                })
+
+            # If direct video url is missing, pick best progressive (video+audio) format or best format overall
+            if not video_url and extracted_formats:
+                combined_formats = [f for f in extracted_formats if f["vcodec"] != "none" and f["acodec"] != "none"]
+                if combined_formats:
+                    video_url = combined_formats[-1]["url"]
+                else:
+                    video_url = extracted_formats[-1]["url"]
+
+            return {
+                "success": True,
+                "url": url,
+                "platform": platform,
+                "title": title,
+                "thumbnail": thumbnail,
+                "duration": duration,
+                "duration_formatted": duration_str,
+                "video_url": video_url,
+                "audio_url": audio_url or video_url,
+                "formats": extracted_formats[:10],
+                "error": None
             }
-        elif strategy == "mobile_ua_fallback":
-            ydl_opts['http_headers']['User-Agent'] = (
-                'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36'
-            )
 
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                
-                if info is None:
-                    raise ValueError("Could not extract info from URL")
+    except Exception as e:
+        return {
+            "success": False,
+            "url": url,
+            "platform": platform,
+            "title": "Extraction Failed",
+            "thumbnail": None,
+            "duration": 0,
+            "duration_formatted": "00:00",
+            "video_url": None,
+            "audio_url": None,
+            "formats": [],
+            "error": str(e)
+        }
 
-                # Handle playlists or multi-video entries
-                if 'entries' in info and info['entries']:
-                    info = info['entries'][0]
-
-                title = info.get('title') or f"{platform} Content"
-                thumbnail = info.get('thumbnail') or (info.get('thumbnails')[-1].get('url') if info.get('thumbnails') else None)
-                duration = info.get('duration') or 0
-                duration_str = format_duration(duration)
-
-                # Find best video & audio links
-                video_url = info.get('url')
-                audio_url = None
-                
-                extracted_formats = []
-                raw_formats = info.get('formats') or []
-
-                for fmt in raw_formats:
-                    fmt_url = fmt.get('url')
-                    if not fmt_url:
-                        continue
-
-                    vcodec = fmt.get('vcodec', 'none')
-                    acodec = fmt.get('acodec', 'none')
-                    ext = fmt.get('ext', 'mp4')
-                    res = fmt.get('resolution') or f"{fmt.get('width', '')}x{fmt.get('height', '')}"
-                    if res == "x" or not res:
-                        res = fmt.get('format_note', 'Standard')
-
-                    filesize = format_filesize(fmt.get('filesize') or fmt.get('filesize_approx'))
-
-                    if vcodec == 'none' and acodec != 'none' and not audio_url:
-                        audio_url = fmt_url
-
-                    extracted_formats.append({
-                        "format_id": str(fmt.get('format_id', '')),
-                        "ext": ext,
-                        "resolution": res,
-                        "filesize_approx": filesize,
-                        "url": fmt_url,
-                        "vcodec": vcodec,
-                        "acodec": acodec
-                    })
-
-                # If direct video url is missing, pick best progressive (video+audio) format or best format overall
-                if not video_url and extracted_formats:
-                    combined_formats = [f for f in extracted_formats if f["vcodec"] != "none" and f["acodec"] != "none"]
-                    if combined_formats:
-                        video_url = combined_formats[-1]["url"]
-                    else:
-                        video_url = extracted_formats[-1]["url"]
-
-                return {
-                    "success": True,
-                    "url": url,
-                    "platform": platform,
-                    "title": title,
-                    "thumbnail": thumbnail,
-                    "duration": duration,
-                    "duration_formatted": duration_str,
-                    "video_url": video_url,
-                    "audio_url": audio_url or video_url,
-                    "formats": extracted_formats[:10],
-                    "error": None
-                }
-
-        except Exception as e:
-            last_exception = e
-            err_msg = str(e).lower()
-            # If not a block/bot error, don't keep retrying
-            if not any(k in err_msg for k in ["sign in", "bot", "confirm", "login", "cookie", "rate limit", "429"]):
-                break
-
-    # Format user-friendly error messages if extraction failed
-    error_str = str(last_exception) if last_exception else "Extraction failed"
-    if "sign in" in error_str.lower() or "login" in error_str.lower() or "bot" in error_str.lower():
-        error_str = f"{platform} requires authentication or cookies to access this link. If this is a private or age-restricted post, add a cookies.txt file to the backend."
-
-    return {
-        "success": False,
-        "url": url,
-        "platform": platform,
-        "title": "Extraction Failed",
-        "thumbnail": None,
-        "duration": 0,
-        "duration_formatted": "00:00",
-        "video_url": None,
-        "audio_url": None,
-        "formats": [],
-        "error": error_str
-    }
 
 
