@@ -188,6 +188,46 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             }
 
     except Exception as e:
+        # Fallback to pytubefix for YouTube if yt-dlp encounters bot / IP restrictions
+        if platform == "YouTube":
+            try:
+                from pytubefix import YouTube
+                yt = YouTube(url)
+                stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+                if not stream:
+                    stream = yt.streams.get_highest_resolution()
+
+                if stream and stream.url:
+                    formats = []
+                    for s in yt.streams.filter(file_extension='mp4')[:10]:
+                        if not s.url:
+                            continue
+                        formats.append({
+                            "format_id": str(s.itag),
+                            "ext": "mp4",
+                            "resolution": str(s.resolution or "Standard"),
+                            "filesize_approx": format_filesize(s.filesize if hasattr(s, 'filesize') else None),
+                            "url": s.url,
+                            "vcodec": getattr(s, 'video_codec', 'h264'),
+                            "acodec": getattr(s, 'audio_codec', 'aac')
+                        })
+
+                    return {
+                        "success": True,
+                        "url": url,
+                        "platform": platform,
+                        "title": yt.title or "YouTube Video",
+                        "thumbnail": yt.thumbnail_url,
+                        "duration": yt.length or 0,
+                        "duration_formatted": format_duration(yt.length or 0),
+                        "video_url": stream.url,
+                        "audio_url": stream.url,
+                        "formats": formats,
+                        "error": None
+                    }
+            except Exception:
+                pass
+
         return {
             "success": False,
             "url": url,
