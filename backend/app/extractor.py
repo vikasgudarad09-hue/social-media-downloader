@@ -85,22 +85,77 @@ def http_get_json(url: str, timeout: int = 8) -> Optional[Dict]:
     return None
 
 # ─────────────────────────────────────────────
-# Piped API — most reliable YouTube proxy
-# Endpoint: /streams/{video_id}
+# Piped API — YouTube proxy (no sign-in needed)
 # ─────────────────────────────────────────────
 PIPED_INSTANCES = [
     "https://pipedapi.kavin.rocks",
-    "https://api.piped.yt",
-    "https://piped-api.garudalinux.org",
-    "https://api.piped.projectsegfau.lt",
     "https://pipedapi.adminforge.de",
     "https://pipedapi.darkness.services",
+    "https://piped-api.garudalinux.org",
+    "https://api.piped.projectsegfau.lt",
 ]
 
 def try_piped(video_id: str) -> Optional[Dict[str, Any]]:
     for instance in PIPED_INSTANCES:
         data = http_get_json(f"{instance}/streams/{video_id}")
-        if data and not data.get('error'):
+        if data and not data.get('error') and data.get('title'):
+            return data
+    return None
+
+# ─────────────────────────────────────────────
+# Invidious API — secondary YouTube fallback
+# Uses official health API to get live instances
+# ─────────────────────────────────────────────
+
+# Hardcoded high-uptime instances (fallback if health API fails)
+INVIDIOUS_INSTANCES = [
+    "https://invidious.f5.si",       # 99.5% uptime
+    "https://invidious.nerdvpn.de",  # 99%+ uptime
+    "https://inv.nadeko.net",
+    "https://invidious.privacyredirect.com",
+    "https://invidious.perennialte.ch",
+    "https://iv.ggtyler.dev",
+    "https://invidious.einfachzocken.eu",
+    "https://yt.artemislena.eu",
+]
+
+_dynamic_instances: Optional[List[str]] = None
+
+def get_invidious_instances() -> List[str]:
+    """Fetch live instance list from Invidious health API, fall back to hardcoded list."""
+    global _dynamic_instances
+    if _dynamic_instances:
+        return _dynamic_instances
+    try:
+        data = http_get_json("https://api.invidious.io/instances.json?sort_by=health", timeout=5)
+        if data and isinstance(data, list):
+            instances = []
+            for item in data:
+                if isinstance(item, list) and len(item) >= 2:
+                    info = item[1]
+                    uri = info.get('uri', '')
+                    monitor = info.get('monitor', {})
+                    # Only use https instances that are up and have API enabled
+                    if (uri.startswith('https') and
+                            not monitor.get('down', True) and
+                            info.get('api') is not False):
+                        instances.append(uri)
+                        if len(instances) >= 6:
+                            break
+            if instances:
+                _dynamic_instances = instances
+                return instances
+    except Exception:
+        pass
+    return INVIDIOUS_INSTANCES
+
+def try_invidious(video_id: str) -> Optional[Dict[str, Any]]:
+    instances = get_invidious_instances()
+    for instance in instances:
+        data = http_get_json(
+            f"{instance}/api/v1/videos/{video_id}?fields=title,videoThumbnails,lengthSeconds,adaptiveFormats,formatStreams"
+        )
+        if data and 'title' in data:
             return data
     return None
 
