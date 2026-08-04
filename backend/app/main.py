@@ -1,15 +1,12 @@
 import sys
 import os
 
-# Add parent directory of main.py to sys.path so 'app' module can be imported anywhere
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import ExtractRequest, ExtractResponse
 from app.extractor import extract_media_info
-import time
-from collections import defaultdict
 
 app = FastAPI(
     title="Social Media Downloader API",
@@ -17,7 +14,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,37 +21,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Rate Limiter State: IP -> list of timestamps
-RATE_LIMIT_REQUESTS = 15  # Max requests
-RATE_LIMIT_WINDOW = 60    # per 60 seconds
-ip_request_history = defaultdict(list)
-
-@app.middleware("http")
-async def security_and_rate_limit_middleware(request: Request, call_next):
-    client_ip = request.client.host if request.client else "127.0.0.1"
-
-    # Rate Limiting for /api/extract
-    if request.url.path == "/api/extract" and request.method == "POST":
-        now = time.time()
-        history = [t for t in ip_request_history[client_ip] if now - t < RATE_LIMIT_WINDOW]
-        ip_request_history[client_ip] = history
-
-        if len(history) >= RATE_LIMIT_REQUESTS:
-            return Response(
-                content='{"detail": "Rate limit exceeded. Please wait a minute before downloading again."}',
-                status_code=429,
-                media_type="application/json"
-            )
-        ip_request_history[client_ip].append(now)
-
-    response = await call_next(request)
-
-    # Security Headers
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    return response
 
 @app.get("/")
 def read_root():
@@ -78,7 +43,6 @@ def extract_media(request: ExtractRequest):
             title="Failed to extract media",
             error=result.get("error", "Unknown extraction error")
         )
-
     return ExtractResponse(**result)
 
 if __name__ == "__main__":

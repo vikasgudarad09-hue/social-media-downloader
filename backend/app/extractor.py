@@ -276,18 +276,6 @@ def extract_media_info(url: str) -> Dict[str, Any]:
     except Exception as e:
         err_msg = str(e)
 
-        lower_err = err_msg.lower()
-        if any(w in lower_err for w in [
-            "sign in", "bot", "confirm", "login", "empty media response",
-            "ip address", "blocked", "http error 403", "http error 429",
-            "precondition", "unavailable", "private video", "age",
-        ]):
-            err_msg = "Unable to extract this video. The platform may be blocking server requests. Try a different video."
-        elif "unsupported url" in lower_err:
-            err_msg = "This URL is not supported. Please paste a direct video link."
-        elif "video unavailable" in lower_err or "this video is not available" in lower_err:
-            err_msg = "This video is unavailable or has been removed."
-
         return {
             "success": False,
             "url": url,
