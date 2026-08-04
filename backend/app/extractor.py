@@ -107,7 +107,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
         'no_warnings': True,
         'skip_download': True,
         'extract_flat': False,
-        'format': 'best',
+        'format': 'best/bestvideo+bestaudio/all',
         'socket_timeout': 15,
         'http_headers': get_platform_headers(platform),
     }
@@ -192,8 +192,13 @@ def extract_media_info(url: str) -> Dict[str, Any]:
                         "acodec": acodec
                     })
 
+                # If direct video url is missing, pick best progressive (video+audio) format or best format overall
                 if not video_url and extracted_formats:
-                    video_url = extracted_formats[-1]["url"]
+                    combined_formats = [f for f in extracted_formats if f["vcodec"] != "none" and f["acodec"] != "none"]
+                    if combined_formats:
+                        video_url = combined_formats[-1]["url"]
+                    else:
+                        video_url = extracted_formats[-1]["url"]
 
                 return {
                     "success": True,
