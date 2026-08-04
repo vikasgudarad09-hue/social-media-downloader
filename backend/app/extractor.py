@@ -41,24 +41,11 @@ def format_filesize(bytes_val: Optional[int]) -> Optional[str]:
     return f"{bytes_val:.1f} TB"
 
 def get_cookie_file_path() -> Optional[str]:
-    """Check for cookies file in standard locations, or write from YOUTUBE_COOKIES_TEXT env var."""
-    # 1. If cookie text is provided directly via environment variable (ideal for Render / Cloud hosting)
-    cookies_text = os.environ.get("YOUTUBE_COOKIES_TEXT") or os.environ.get("COOKIES_TEXT")
-    if cookies_text and len(cookies_text.strip()) > 10:
-        env_cookie_file = os.path.join(os.path.dirname(__file__), "..", "runtime_cookies.txt")
-        try:
-            with open(env_cookie_file, "w", encoding="utf-8") as f:
-                f.write(cookies_text.strip())
-            return env_cookie_file
-        except Exception:
-            pass
-
-    # 2. Check for path specified in env
-    env_path = os.environ.get("COOKIES_FILE") or os.environ.get("YOUTUBE_COOKIES_PATH")
+    """Check for cookies file in standard locations or via env var."""
+    env_path = os.environ.get("YOUTUBE_COOKIES_PATH") or os.environ.get("COOKIES_FILE")
     if env_path and os.path.exists(env_path):
         return env_path
     
-    # 3. Check candidate file paths
     candidate_paths = [
         "cookies.txt",
         "backend/cookies.txt",
@@ -70,90 +57,25 @@ def get_cookie_file_path() -> Optional[str]:
             return path
     return None
 
-def get_platform_headers(platform: str) -> Dict[str, str]:
-    """Get optimized HTTP headers for specific platforms to minimize bot blocking."""
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-    }
-
-    if platform == "Instagram":
-        headers['Referer'] = 'https://www.instagram.com/'
-        headers['User-Agent'] = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
-    elif platform == "TikTok":
-        headers['Referer'] = 'https://www.tiktok.com/'
-    elif platform == "X (Twitter)":
-        headers['Referer'] = 'https://x.com/'
-    elif platform == "Facebook":
-        headers['Referer'] = 'https://www.facebook.com/'
-    elif platform == "Reddit":
-        headers['User-Agent'] = 'python:social-media-downloader:v1.0.0 (by /u/JPMediaSaver)'
-    elif platform == "Pinterest":
-        headers['Referer'] = 'https://www.pinterest.com/'
-
-    return headers
-
 def extract_media_info(url: str) -> Dict[str, Any]:
     """
-    Extracts video metadata and direct downloadable links using pytubefix/yt-dlp across all supported platforms.
+    Extracts video metadata and direct downloadable links using yt-dlp.
+    Does NOT download files to disk.
     """
-    platform = detect_platform(url)
-    cookie_file = get_cookie_file_path()
-
-    # 1. Primary engine for YouTube: pytubefix (bypasses bot checks cleanly)
-    if platform == "YouTube":
-        try:
-            from pytubefix import YouTube
-            yt = YouTube(url)
-            stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
-            if not stream:
-                stream = yt.streams.get_highest_resolution()
-
-            if stream and stream.url:
-                formats = []
-                for s in yt.streams.filter(file_extension='mp4')[:10]:
-                    if not s.url:
-                        continue
-                    formats.append({
-                        "format_id": str(s.itag),
-                        "ext": "mp4",
-                        "resolution": str(getattr(s, 'resolution', None) or "Standard"),
-                        "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
-                        "url": s.url,
-                        "vcodec": getattr(s, 'video_codec', 'h264'),
-                        "acodec": getattr(s, 'audio_codec', 'aac')
-                    })
-
-                return {
-                    "success": True,
-                    "url": url,
-                    "platform": platform,
-                    "title": yt.title or "YouTube Video",
-                    "thumbnail": yt.thumbnail_url,
-                    "duration": yt.length or 0,
-                    "duration_formatted": format_duration(yt.length or 0),
-                    "video_url": stream.url,
-                    "audio_url": stream.url,
-                    "formats": formats,
-                    "error": None
-                }
-        except Exception:
-            pass
-
-    # 2. Secondary engine: yt-dlp for all platforms (Instagram, TikTok, Facebook, Twitter, Reddit, Pinterest)
     ydl_opts: Dict[str, Any] = {
         'quiet': True,
         'no_warnings': True,
         'skip_download': True,
         'extract_flat': False,
-        'format': 'best/bestvideo+bestaudio/all',
+        'format': 'best',
         'socket_timeout': 15,
-        'http_headers': get_platform_headers(platform),
     }
 
+    cookie_file = get_cookie_file_path()
     if cookie_file:
         ydl_opts['cookiefile'] = cookie_file
+
+    platform = detect_platform(url)
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -162,14 +84,16 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             if info is None:
                 raise ValueError("Could not extract info from URL")
 
+            # Handle playlists or single entry
             if 'entries' in info and info['entries']:
                 info = info['entries'][0]
 
-            title = info.get('title') or f"{platform} Content"
+            title = info.get('title') or f"{platform} Video"
             thumbnail = info.get('thumbnail') or (info.get('thumbnails')[-1].get('url') if info.get('thumbnails') else None)
             duration = info.get('duration') or 0
             duration_str = format_duration(duration)
 
+            # Find best video & audio links
             video_url = info.get('url')
             audio_url = None
             
@@ -185,11 +109,12 @@ def extract_media_info(url: str) -> Dict[str, Any]:
                 acodec = fmt.get('acodec', 'none')
                 ext = fmt.get('ext', 'mp4')
                 res = fmt.get('resolution') or f"{fmt.get('width', '')}x{fmt.get('height', '')}"
-                if res == "x" or not res:
+                if res == "x":
                     res = fmt.get('format_note', 'Standard')
 
                 filesize = format_filesize(fmt.get('filesize') or fmt.get('filesize_approx'))
 
+                # Capture audio-only stream if present
                 if vcodec == 'none' and acodec != 'none' and not audio_url:
                     audio_url = fmt_url
 
@@ -203,12 +128,9 @@ def extract_media_info(url: str) -> Dict[str, Any]:
                     "acodec": acodec
                 })
 
+            # If no direct video url found in main info, grab highest quality format
             if not video_url and extracted_formats:
-                combined_formats = [f for f in extracted_formats if f["vcodec"] != "none" and f["acodec"] != "none"]
-                if combined_formats:
-                    video_url = combined_formats[-1]["url"]
-                else:
-                    video_url = extracted_formats[-1]["url"]
+                video_url = extracted_formats[-1]["url"]
 
             return {
                 "success": True,
@@ -220,15 +142,11 @@ def extract_media_info(url: str) -> Dict[str, Any]:
                 "duration_formatted": duration_str,
                 "video_url": video_url,
                 "audio_url": audio_url or video_url,
-                "formats": extracted_formats[:10],
+                "formats": extracted_formats[:10], # Return top 10 format options
                 "error": None
             }
 
     except Exception as e:
-        err_msg = str(e)
-        if any(w in err_msg.lower() for w in ["sign in", "bot", "confirm", "login"]):
-            err_msg = "Unable to extract video at the moment. Please verify the URL and try again."
-
         return {
             "success": False,
             "url": url,
@@ -240,10 +158,5 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             "video_url": None,
             "audio_url": None,
             "formats": [],
-            "error": err_msg
+            "error": str(e)
         }
-
-
-
-
-
