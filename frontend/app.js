@@ -52,7 +52,20 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Form Submission
+    // Auto-detect platform badge as user types/pastes
+    urlInput.addEventListener("input", () => {
+        const val = urlInput.value.trim().toLowerCase();
+
+        if (val.includes("youtube.com") || val.includes("youtu.be")) {
+            showToast("Detected: YouTube", "info");
+        } else if (val.includes("instagram.com") || val.includes("instagr.am")) {
+            showToast("Detected: Instagram", "info");
+        } else if (val.includes("tiktok.com")) {
+            showToast("Detected: TikTok", "info");
+        }
+    });
+
+    // Form Submission with Auto-Retry
     extractForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const url = urlInput.value.trim();
@@ -65,19 +78,44 @@ document.addEventListener("DOMContentLoaded", () => {
         setButtonLoading(true);
         isUnlockedForAd = false;
 
+        let attempts = 0;
+        const maxAttempts = 2;
+        let success = false;
+        let data = null;
+        let lastErr = null;
+
+        while (attempts < maxAttempts && !success) {
+            attempts++;
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/extract`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+
+                data = await response.json();
+
+                if (response.ok && data.success) {
+                    success = true;
+                } else {
+                    lastErr = new Error(data.error || data.detail || "Extraction failed.");
+                    if (attempts < maxAttempts) {
+                        await new Promise(r => setTimeout(r, 1200));
+                    }
+                }
+            } catch (err) {
+                lastErr = err;
+                if (attempts < maxAttempts) {
+                    await new Promise(r => setTimeout(r, 1200));
+                }
+            }
+        }
+
         try {
-            const response = await fetch(`${API_BASE_URL}/api/extract`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ url: url })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
-                throw new Error(data.error || data.detail || "Extraction failed.");
+            if (!success || !data) {
+                throw lastErr || new Error("Failed to extract media after retry.");
             }
 
             // Populate Card Data
@@ -87,7 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } catch (err) {
             console.error("Extraction error:", err);
-            errorMessage.textContent = err.message || "Failed to extract media. Check the URL and backend server status.";
+            errorMessage.textContent = err.message || "Failed to extract media. Please check the URL and try again.";
             show(errorCard);
         } finally {
             hide(loadingState);

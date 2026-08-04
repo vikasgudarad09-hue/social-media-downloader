@@ -12,11 +12,15 @@ import httpx
 import re
 from typing import Optional
 
+from fastapi.middleware.gzip import GZipMiddleware
+
 app = FastAPI(
     title="Social Media Downloader API",
     description="FastAPI service powered by yt-dlp to extract video metadata & direct stream links safely.",
     version="1.0.0"
 )
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,9 +37,14 @@ def read_root():
         "service": "Social Media Downloader API",
         "endpoints": {
             "extract": "POST /api/extract",
-            "download": "GET /api/proxy-download"
+            "download": "GET /api/proxy-download",
+            "health": "GET /health"
         }
     }
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "uptime": "healthy"}
 
 @app.post("/api/extract", response_model=ExtractResponse)
 def extract_media(request: ExtractRequest):
