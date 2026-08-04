@@ -383,7 +383,8 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
         video_id = extract_youtube_id(url)
         target_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else url
 
-        for client_type in ['TV', 'IOS', 'MWEB', 'WEB', 'ANDROID']:
+        for client_type in ['TV', 'IOS']:
+
 
             try:
                 yt = YouTube(target_url, client=client_type)
@@ -446,10 +447,77 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
     return None
 
 # ─────────────────────────────────────────────
-# Main extractor — multi-engine fallback chain
+# TikWM TikTok Engine
 # ─────────────────────────────────────────────
+def try_tikwm(url: str) -> Optional[Dict[str, Any]]:
+    try:
+        req = urllib.request.Request(
+            f"https://www.tikwm.com/api/?url={urllib.parse.quote(url)}",
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        )
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode('utf-8', errors='ignore'))
+            if data.get("code") == 0 and data.get("data"):
+                d = data["data"]
+                play_url = d.get("play") or d.get("wmplay")
+                if play_url:
+                    if play_url.startswith("/"):
+                        play_url = "https://www.tikwm.com" + play_url
+                    dur = d.get("duration", 0) or 0
+                    return {
+                        "success": True,
+                        "url": url,
+                        "platform": "TikTok",
+                        "title": str(d.get("title") or "TikTok Video"),
+                        "thumbnail": d.get("cover"),
+                        "duration": dur,
+                        "duration_formatted": format_duration(dur),
+                        "video_url": play_url,
+                        "audio_url": d.get("music") or play_url,
+                        "formats": [{
+                            "format_id": "hd",
+                            "ext": "mp4",
+                            "resolution": "HD",
+                            "filesize_approx": None,
+                            "url": play_url,
+                            "vcodec": "h264",
+                            "acodec": "aac"
+                        }],
+                        "requires_ad_unlock": (dur > 900),
+                        "error": None
+                    }
+    except Exception:
+        pass
+    return None
+
+# ─────────────────────────────────────────────
+# In-memory extraction LRU cache (TTL = 15 mins)
+# ─────────────────────────────────────────────
+import time
+_extraction_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
+
 def extract_media_info(url: str) -> Dict[str, Any]:
+    # Check cache first
+    now = time.time()
+    clean_url = url.strip()
+    if clean_url in _extraction_cache:
+        ts, cached_res = _extraction_cache[clean_url]
+        if now - ts < 900:  # 15 minutes TTL
+            return cached_res
+
+    res = _do_extract_media_info(clean_url)
+    if res.get("success"):
+        _extraction_cache[clean_url] = (now, res)
+    return res
+
+def _do_extract_media_info(url: str) -> Dict[str, Any]:
     platform = detect_platform(url)
+
+    # ── TikTok Engine 1: TikWM (fast 0.3s) ──
+    if platform == "TikTok":
+        tikwm_res = try_tikwm(url)
+        if tikwm_res:
+            return tikwm_res
 
     # ── YouTube Engine 1: pytubefix ──
     if platform == "YouTube":
@@ -517,4 +585,5 @@ def extract_media_info(url: str) -> Dict[str, Any]:
         "formats": [],
         "error": "Could not extract media. This video may be private, removed, or region-locked.",
     }
+
 
