@@ -48,11 +48,14 @@ Sleek dark-mode interface built with Tailwind CSS, supporting automatic link pas
 
 ---
 
-### 3. Integrated Creator Support & Donation System
-Supporters can contribute via direct **UPI (PhonePe, Google Pay, Paytm)** in India or globally via **PayPal**. Features custom amount entry, animated pulsating action buttons, and verified payee info.
+### 3. Integrated Creator Support & Donations
 
 <div align="center">
-  <img src="docs/screenshots/support_modal.png" alt="Support and Donation Modal" width="400" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+
+| 🇮🇳 UPI / PhonePe (India) | 🌍 PayPal (International) |
+| :---: | :---: |
+| <img src="docs/screenshots/phonepe_qr.jpg" alt="PhonePe QR Code - Vikas Prabhu Gudarad" width="220" style="border-radius: 12px; border: 2px solid #a855f7;" /><br><br><b>UPI ID:</b> <code>vickyunion99@ibl</code><br><b>Payee Name:</b> VIKAS PRABHU GUDARAD<br><i>Scan with PhonePe, Google Pay, Paytm, BHIM</i> | <br><br><a href="https://www.paypal.com/donate?business=gudaradvikas09@gmail.com&no_recurring=0&currency_code=USD" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="Donate with PayPal" /></a><br><br><b>PayPal Account:</b><br><code>gudaradvikas09@gmail.com</code><br><br><i>Supports Credit Cards, Debit Cards & PayPal Balance</i> |
+
 </div>
 
 ---
