@@ -5,3 +5,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .DS_Store
+.env
+.env.local
+serviceAccountKey*.json
+firebase-credentials*.json
+!firebase-credentials.example.json
+.firebase/

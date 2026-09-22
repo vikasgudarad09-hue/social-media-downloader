@@ -34,3 +34,64 @@
 ::-webkit-scrollbar-thumb:hover {
     background: #334155;
 }
+
+/* Button Glowing Pulse & Shimmer Animation */
+@keyframes btnPulseGlow {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(168, 85, 247, 0.4), 0 0 30px rgba(99, 102, 241, 0.2);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(168, 85, 247, 0.75), 0 0 45px rgba(99, 102, 241, 0.45);
+        transform: scale(1.02);
+    }
+}
+
+.animate-btn-pulse {
+    animation: btnPulseGlow 2.2s infinite ease-in-out;
+}
+
+/* Company Splash Screen Animations */
+@keyframes logoRevealZoom {
+    0% {
+        opacity: 0;
+        transform: scale(0.65) rotate(-6deg);
+        filter: blur(12px);
+    }
+    60% {
+        opacity: 1;
+        transform: scale(1.06) rotate(1deg);
+        filter: blur(0px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) rotate(0deg);
+        filter: blur(0px);
+    }
+}
+
+@keyframes logoGlowRing {
+    0%, 100% {
+        box-shadow: 0 0 25px rgba(245, 158, 11, 0.45), 0 0 50px rgba(236, 72, 153, 0.25);
+    }
+    50% {
+        box-shadow: 0 0 40px rgba(245, 158, 11, 0.8), 0 0 75px rgba(236, 72, 153, 0.5);
+    }
+}
+
+@keyframes splashProgressBar {
+    0% { width: 0%; }
+    100% { width: 100%; }
+}
+
+.animate-logo-reveal {
+    animation: logoRevealZoom 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-logo-glow {
+    animation: logoGlowRing 2s infinite ease-in-out;
+}
+
+.animate-splash-bar {
+    animation: splashProgressBar 5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}

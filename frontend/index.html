@@ -36,6 +36,42 @@
 </head>
 <body class="bg-slate-950 text-slate-100 font-['Plus_Jakarta_Sans',sans-serif] min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white relative overflow-x-hidden">
 
+    <!-- Company Logo Reveal Splash Screen (Jayaprabhu Creations) -->
+    <div id="company-splash-screen" class="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center transition-opacity duration-700 ease-out select-none">
+        <!-- Skip Button -->
+        <button id="skip-splash-btn" type="button" class="absolute top-5 right-5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-400 hover:text-white bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex items-center gap-1.5 backdrop-blur">
+            <span>Skip</span>
+            <i class="fa-solid fa-forward-step text-[10px]"></i>
+        </button>
+
+        <!-- Ambient Glow & Logo Reveal Container -->
+        <div class="relative flex flex-col items-center px-4">
+            <div class="absolute -inset-8 bg-gradient-to-r from-amber-500/25 via-pink-500/20 to-indigo-500/25 rounded-full blur-3xl animate-pulse"></div>
+
+            <!-- Animated Emblem -->
+            <div class="relative animate-logo-reveal">
+                <div class="w-28 h-28 sm:w-32 sm:h-32 rounded-full p-1 bg-gradient-to-tr from-amber-400 via-yellow-200 to-amber-500 animate-logo-glow shadow-2xl flex items-center justify-center">
+                    <img src="logo.jpg" alt="Jayaprabhu Creations" class="w-full h-full object-cover rounded-full bg-slate-950">
+                </div>
+            </div>
+
+            <!-- Brand Name & Tagline -->
+            <div class="mt-6 text-center space-y-1 relative">
+                <h2 class="text-2xl sm:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text text-transparent">
+                    Jayaprabhu Creations
+                </h2>
+                <p class="text-xs sm:text-sm font-semibold text-slate-400 tracking-wider uppercase">
+                    JPMediaSaver • Universal Media Downloader
+                </p>
+            </div>
+
+            <!-- Animated Progress Bar -->
+            <div class="w-48 sm:w-56 h-1 bg-slate-900 rounded-full mt-6 overflow-hidden border border-slate-800">
+                <div class="h-full bg-gradient-to-r from-amber-400 via-pink-500 to-indigo-500 rounded-full animate-splash-bar"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Background Decorative Glows -->
     <div class="fixed -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
     <div class="fixed top-1/2 -right-40 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -51,9 +87,54 @@
                     <p class="text-xs text-amber-300/80 font-medium">Jayaprabhu Creations</p>
                 </div>
             </div>
-            <div class="flex items-center space-x-4">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Backend Connected
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <!-- Support Creator Button (UPI & PayPal) -->
+                <button 
+                    id="nav-support-btn" 
+                    type="button" 
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-500/20 via-rose-500/10 to-indigo-500/20 border border-amber-400/40 text-amber-300 hover:text-white hover:border-amber-400 hover:shadow-lg hover:shadow-amber-500/20 transition cursor-pointer"
+                    title="Support Creator (UPI & PayPal)"
+                >
+                    <i class="fa-solid fa-heart text-rose-400 animate-pulse"></i>
+                    <span class="hidden sm:inline">Support</span>
+                </button>
+
+                <!-- Download History Button -->
+                <button 
+                    id="nav-history-btn" 
+                    type="button" 
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 transition cursor-pointer"
+                    title="View My Download History"
+                >
+                    <i class="fa-solid fa-clock-rotate-left text-amber-400"></i>
+                    <span class="hidden sm:inline">My Downloads</span>
+                </button>
+
+                <!-- Firebase Auth State Container -->
+                <div id="nav-auth-container" class="flex items-center gap-2">
+                    <!-- Signed Out State (Default) -->
+                    <button 
+                        id="btn-login-google" 
+                        type="button" 
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md shadow-indigo-600/20 transition cursor-pointer"
+                    >
+                        <i class="fa-brands fa-google text-xs"></i>
+                        <span>Sign In</span>
+                    </button>
+
+                    <!-- Signed In State (Hidden by default) -->
+                    <div id="user-profile-badge" class="hidden items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-xl px-2 py-1">
+                        <img id="user-avatar" src="" alt="User" class="w-6 h-6 rounded-full object-cover border border-indigo-400/50">
+                        <span id="user-name" class="text-xs font-medium text-slate-200 max-w-[100px] truncate hidden md:inline">User</span>
+                        <button id="btn-sign-out" type="button" class="text-slate-400 hover:text-rose-400 text-xs ml-1 cursor-pointer" title="Sign Out">
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Backend Status Pill -->
+                <span class="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Online
                 </span>
             </div>
         </div>
@@ -111,14 +192,14 @@
                 <span class="absolute top-1 right-2 text-[8px] uppercase tracking-wider text-slate-500 font-bold z-10">Advertisement</span>
                 <script type="text/javascript">
                   atOptions = {
-                    'key' : '9c06980b2036b2266103d227e4e4629d',
+                    'key' : '15fe4875cdab0ab1a1683941c59050cc',
                     'format' : 'iframe',
                     'height' : 90,
                     'width' : 728,
                     'params' : {}
                   };
                 </script>
-                <script type="text/javascript" src="https://www.highperformanceformat.com/9c06980b2036b2266103d227e4e4629d/invoke.js"></script>
+                <script type="text/javascript" src="https://www.highrevenueformat.com/15fe4875cdab0ab1a1683941c59050cc/invoke.js"></script>
             </div>
         </div>
 
@@ -327,6 +408,47 @@
             </div>
         </div>
 
+        <!-- Support & Donation Callout (UPI & PayPal) -->
+        <div class="my-10 max-w-4xl mx-auto p-6 sm:p-8 bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-amber-950/30 border border-amber-500/30 rounded-2xl backdrop-blur-xl relative overflow-hidden shadow-xl">
+            <div class="absolute -right-10 -bottom-10 w-44 h-44 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="space-y-2 text-center md:text-left flex-1">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                        <i class="fa-solid fa-mug-hot text-amber-400"></i> Support Jayaprabhu Creations
+                    </div>
+                    <h3 class="text-2xl font-extrabold text-slate-100">
+                        Support this Free Service <span class="text-amber-300">☕</span>
+                    </h3>
+                    <p class="text-xs sm:text-sm text-slate-400 max-w-xl leading-relaxed">
+                        JPMediaSaver is 100% free, fast, and privacy-friendly. If this tool saves you time, please consider supporting development and server costs via <strong>UPI (GPay / PhonePe / Paytm)</strong> or <strong>PayPal</strong>.
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center justify-center gap-3 flex-shrink-0">
+                    <button 
+                        type="button" 
+                        class="btn-open-support-modal-upi px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition flex items-center gap-2 cursor-pointer"
+                    >
+                        <i class="fa-solid fa-qrcode text-sm"></i> Pay via UPI (India)
+                    </button>
+                    <button 
+                        type="button" 
+                        class="btn-open-support-modal-paypal px-5 py-3 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-sky-600/25 transition flex items-center gap-2 cursor-pointer"
+                    >
+                        <i class="fa-brands fa-paypal text-sm"></i> PayPal (Global)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Adsterra Native Banner Ad Container -->
+        <div class="my-8 max-w-4xl mx-auto text-center">
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-3 sm:p-4 backdrop-blur-xl relative overflow-hidden shadow-lg">
+                <span class="text-[9px] uppercase tracking-wider text-slate-500 font-bold block mb-2 text-right">Sponsored Recommendations</span>
+                <script async="async" data-cfasync="false" src="https://pl31457837.profitableratecpmnetwork.com/75d422c675206036d4763ca9b6bbc441/invoke.js"></script>
+                <div id="container-75d422c675206036d4763ca9b6bbc441"></div>
+            </div>
+        </div>
+
         <!-- Privacy & Zero Data Guarantee Section -->
         <section class="mt-14 pt-10 border-t border-slate-800/80">
             <div class="text-center mb-8">
@@ -371,9 +493,13 @@
         <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-3">
             <p>© 2026 JPMediaSaver • Universal Social Media Downloader</p>
             <div class="flex items-center space-x-4">
+                <button id="footer-support-btn" type="button" class="hover:text-amber-300 text-amber-400/80 transition flex items-center gap-1 font-medium">
+                    <i class="fa-solid fa-heart text-rose-400 text-[10px]"></i> Support Creator
+                </button>
+                <span>•</span>
                 <button id="open-privacy-btn" type="button" class="hover:text-indigo-400 underline transition">Privacy Policy & Data Commitment</button>
                 <span>•</span>
-                <span>FastAPI Backend: <code class="text-slate-400 font-mono">http://localhost:8000</code></span>
+                <span class="text-emerald-400/90 inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Systems Operational</span>
             </div>
         </div>
     </footer>
@@ -433,14 +559,14 @@
                 <span class="absolute top-1 right-2 text-[8px] uppercase tracking-wider text-slate-600 font-bold z-10">Advertisement</span>
                 <script type="text/javascript">
                   atOptions = {
-                    'key' : '9c06980b2036b2266103d227e4e4629d',
+                    'key' : '15fe4875cdab0ab1a1683941c59050cc',
                     'format' : 'iframe',
                     'height' : 90,
                     'width' : 728,
                     'params' : {}
                   };
                 </script>
-                <script type="text/javascript" src="https://www.highperformanceformat.com/9c06980b2036b2266103d227e4e4629d/invoke.js"></script>
+                <script type="text/javascript" src="https://www.highrevenueformat.com/15fe4875cdab0ab1a1683941c59050cc/invoke.js"></script>
             </div>
 
             <!-- Countdown Timer & Unlock Button -->
@@ -454,13 +580,235 @@
     </div>
 
 
+    <!-- Support & Donation Modal (UPI & PayPal) -->
+    <div id="support-modal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <!-- Close Button -->
+            <button id="close-support-btn" type="button" class="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg transition cursor-pointer">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <!-- Modal Header -->
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center text-xl shadow-lg shadow-amber-500/10">
+                    <i class="fa-solid fa-mug-hot"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-100">Support the Creator</h3>
+                    <p class="text-xs text-amber-400 font-medium">Jayaprabhu Creations • JPMediaSaver</p>
+                </div>
+            </div>
+
+            <!-- Payment Method Tabs -->
+            <div class="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-semibold">
+                <button id="tab-btn-upi" type="button" class="py-2.5 rounded-lg transition flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow cursor-pointer">
+                    <i class="fa-solid fa-qrcode text-emerald-200"></i> UPI (India 🇮🇳)
+                </button>
+                <button id="tab-btn-paypal" type="button" class="py-2.5 rounded-lg transition flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                    <i class="fa-brands fa-paypal text-sky-400"></i> PayPal (Global 🌍)
+                </button>
+            </div>
+
+            <!-- Tab 1: UPI Content (For Indian Supporters) -->
+            <div id="tab-content-upi" class="space-y-4">
+                <div class="p-4 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col items-center text-center space-y-3">
+                    <p class="text-xs text-slate-300">
+                        Scan with <strong>PhonePe</strong>, <strong>Google Pay</strong>, <strong>Paytm</strong>, <strong>BHIM</strong>, or any UPI App
+                    </p>
+
+                    <!-- Official PhonePe QR Banner -->
+                    <div class="relative max-w-[210px] mx-auto rounded-2xl overflow-hidden shadow-2xl shadow-purple-600/20 border-2 border-purple-500/50 bg-white p-1">
+                        <img id="upi-qr-image" src="images/phonepe_qr.jpg" alt="PhonePe QR Code - Vikas Prabhu Gudarad" class="w-full h-auto object-contain rounded-xl">
+                    </div>
+
+                    <!-- Verified Payee Info -->
+                    <div class="text-center">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                            <i class="fa-solid fa-circle-check text-purple-400"></i> Verified Payee: VIKAS PRABHU GUDARAD
+                        </span>
+                    </div>
+
+                    <!-- Quick Amount Selectors for UPI -->
+                    <div class="w-full pt-1">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-[11px] font-medium text-slate-400">Select amount:</span>
+                            <span class="text-[10px] text-purple-300 font-semibold">Choose or type custom</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1.5 text-xs font-semibold" id="upi-amount-pills">
+                            <button type="button" data-amount="50" class="upi-pill py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-300 hover:border-purple-500 hover:text-purple-400 transition cursor-pointer">₹50</button>
+                            <button type="button" data-amount="100" class="upi-pill active py-1.5 rounded-lg border border-purple-500 bg-purple-600/20 text-purple-300 font-bold transition cursor-pointer">₹100</button>
+                            <button type="button" data-amount="200" class="upi-pill py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-300 hover:border-purple-500 hover:text-purple-400 transition cursor-pointer">₹200</button>
+                            <button type="button" data-amount="500" class="upi-pill py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-300 hover:border-purple-500 hover:text-purple-400 transition cursor-pointer">₹500</button>
+                        </div>
+                    </div>
+
+                    <!-- Custom Amount Input for UPI -->
+                    <div class="w-full">
+                        <label for="custom-upi-amount" class="text-[11px] font-medium text-slate-400 mb-1 block text-left">
+                            Or enter any custom amount (₹):
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-purple-400 font-bold text-sm">₹</span>
+                            <input 
+                                type="number" 
+                                id="custom-upi-amount" 
+                                min="1" 
+                                step="1" 
+                                placeholder="Enter custom amount (e.g. 250)" 
+                                value="100"
+                                class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-semibold"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Copy UPI ID Box -->
+                    <div class="w-full flex items-center gap-2 pt-1">
+                        <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-left flex items-center justify-between">
+                            <div>
+                                <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">UPI ID (PhonePe / VPA)</div>
+                                <div id="display-upi-id" class="text-xs font-mono font-semibold text-purple-300 truncate">vickyunion99@ibl</div>
+                            </div>
+                            <button id="copy-upi-btn" type="button" class="px-2.5 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-semibold transition flex items-center gap-1 cursor-pointer" title="Copy UPI ID">
+                                <i class="fa-regular fa-copy"></i>
+                                <span>Copy</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Direct Open in UPI App (Mobile) with pulse glow animation -->
+                    <a id="direct-upi-link" href="upi://pay?pa=vickyunion99@ibl&pn=VIKAS%20PRABHU%20GUDARAD&am=100&cu=INR" class="animate-btn-pulse w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-xl shadow-purple-600/30 transition flex items-center justify-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-mobile-screen text-sm"></i>
+                        <span id="direct-upi-text">Open in PhonePe / GPay / Paytm (₹100)</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Tab 2: PayPal Content (For International Supporters) -->
+            <div id="tab-content-paypal" class="hidden space-y-4">
+                <div class="p-5 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col items-center text-center space-y-4">
+                    <div class="w-14 h-14 rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center justify-center text-2xl shadow-lg shadow-sky-500/10">
+                        <i class="fa-brands fa-paypal"></i>
+                    </div>
+
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-100">Donate via PayPal</h4>
+                        <p class="text-xs text-slate-400 mt-1 max-w-sm leading-relaxed">
+                            Support from anywhere in the world using credit card, debit card, or your PayPal balance.
+                        </p>
+                    </div>
+
+                    <!-- Quick Amount Selectors for PayPal -->
+                    <div class="w-full pt-1">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-[11px] font-medium text-slate-400">Select amount:</span>
+                            <span class="text-[10px] text-sky-400 font-semibold">Choose or type custom</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1.5 text-xs font-semibold" id="paypal-amount-pills">
+                            <button type="button" data-amount="3" class="paypal-pill py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-300 hover:border-sky-500 hover:text-sky-400 transition cursor-pointer">$3</button>
+                            <button type="button" data-amount="5" class="paypal-pill active py-1.5 rounded-lg border border-sky-500 bg-sky-600/20 text-sky-300 font-bold transition cursor-pointer">$5</button>
+                            <button type="button" data-amount="10" class="paypal-pill py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-300 hover:border-sky-500 hover:text-sky-400 transition cursor-pointer">$10</button>
+                            <button type="button" data-amount="25" class="paypal-pill py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-300 hover:border-sky-500 hover:text-sky-400 transition cursor-pointer">$25</button>
+                        </div>
+                    </div>
+
+                    <!-- Custom Amount Input for PayPal -->
+                    <div class="w-full">
+                        <label for="custom-paypal-amount" class="text-[11px] font-medium text-slate-400 mb-1 block text-left">
+                            Or enter any custom amount ($ USD):
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-sky-400 font-bold text-sm">$</span>
+                            <input 
+                                type="number" 
+                                id="custom-paypal-amount" 
+                                min="1" 
+                                step="1" 
+                                placeholder="Enter custom amount (e.g. 15)" 
+                                value="5"
+                                class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 font-semibold"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- PayPal ID Display Box -->
+                    <div class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-left flex items-center justify-between">
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">PayPal Account</div>
+                            <div id="display-paypal-email" class="text-xs font-mono font-semibold text-sky-400 truncate">gudaradvikas09@gmail.com</div>
+                        </div>
+                        <button id="copy-paypal-btn" type="button" class="px-2.5 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 text-xs font-semibold transition flex items-center gap-1 cursor-pointer" title="Copy PayPal Email">
+                            <i class="fa-regular fa-copy"></i>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+
+                    <!-- Direct PayPal Link Button with pulse glow animation -->
+                    <a id="direct-paypal-btn" href="https://www.paypal.com/donate?business=gudaradvikas09@gmail.com&amount=5&currency_code=USD" target="_blank" rel="noopener noreferrer" class="animate-btn-pulse w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white text-xs font-bold shadow-xl shadow-sky-600/30 transition flex items-center justify-center gap-2 cursor-pointer">
+                        <i class="fa-brands fa-paypal text-sm"></i>
+                        <span id="direct-paypal-text">Pay $5 with PayPal</span>
+                    </a>
+
+                    <p class="text-[11px] text-slate-500 flex items-center gap-1.5">
+                        <i class="fa-solid fa-lock text-slate-400 text-[10px]"></i> Secure SSL Encrypted Payment via PayPal Official
+                    </p>
+                </div>
+            </div>
+
+            <!-- Footer note inside modal -->
+            <p class="text-[11px] text-center text-slate-500">
+                ❤️ Thank you deeply for keeping JPMediaSaver free, fast, and accessible for everyone!
+            </p>
+        </div>
+    </div>
+
+    <!-- User Download History Modal (Powered by Firebase Firestore) -->
+    <div id="history-modal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative flex flex-col max-h-[85vh]">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-100">My Download History</h3>
+                        <p id="history-sync-indicator" class="text-xs text-slate-400">Synced via Firebase & Local Storage</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="clear-history-btn" type="button" class="text-xs text-rose-400 hover:text-rose-300 px-2.5 py-1.5 rounded-lg hover:bg-rose-950/30 transition cursor-pointer">
+                        <i class="fa-solid fa-trash-can mr-1"></i> Clear
+                    </button>
+                    <button id="close-history-btn" type="button" class="text-slate-400 hover:text-white p-1.5 rounded-lg transition cursor-pointer">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- History List Items -->
+            <div id="history-list" class="flex-1 overflow-y-auto space-y-3 pr-1 divide-y divide-slate-800/50">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="history-empty-state" class="hidden py-12 text-center text-slate-400 space-y-2">
+                <i class="fa-solid fa-box-open text-4xl text-slate-600 mb-2"></i>
+                <p class="text-sm font-semibold text-slate-300">No downloads saved yet</p>
+                <p class="text-xs text-slate-500">Videos you extract and download will appear here for quick access.</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
+    <!-- Payment & Support Config -->
+    <script src="payment-config.js"></script>
+    <!-- Firebase SDK (Compat Version 10.12.0) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
+    <script src="firebase-config.js"></script>
     <script src="app.js"></script>
-    <!-- Adsterra Social Bar Ad -->
-    <script src="https://pl30683012.effectivecpmnetwork.com/6f/dd/13/6fdd132aeb53190d1698e7adb92c9c06.js"></script>
-    <!-- Monetag In-Page Push Ad -->
-    <script>(function(s){s.dataset.zone='11500486',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
 </body>
 </html>

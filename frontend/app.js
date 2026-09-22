@@ -1,6 +1,35 @@
-const API_BASE_URL = "https://social-media-downloader-production-19ab.up.railway.app";
+// Automatically routes to relative path on Firebase Hosting or localhost (zero external backend dependency)
+const isFirebaseOrLocal = (
+    window.location.hostname.includes("web.app") || 
+    window.location.hostname.includes("firebaseapp.com") ||
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+);
+const API_BASE_URL = isFirebaseOrLocal ? "" : "https://social-media-downloader-production-19ab.up.railway.app";
 
 document.addEventListener("DOMContentLoaded", () => {
+    // --- Jayaprabhu Creations Company Splash Screen ---
+    const splashScreen = document.getElementById("company-splash-screen");
+    const skipSplashBtn = document.getElementById("skip-splash-btn");
+
+    if (splashScreen) {
+        const dismissSplash = () => {
+            splashScreen.classList.add("opacity-0", "pointer-events-none");
+            setTimeout(() => {
+                if (splashScreen && splashScreen.parentNode) {
+                    splashScreen.remove();
+                }
+            }, 750);
+        };
+
+        if (skipSplashBtn) {
+            skipSplashBtn.addEventListener("click", dismissSplash);
+        }
+
+        // Automatic smooth fade-out after exactly 5 seconds
+        setTimeout(dismissSplash, 5000);
+    }
+
     const extractForm = document.getElementById("extract-form");
     const urlInput = document.getElementById("url-input");
     const btnPaste = document.getElementById("btn-paste");
@@ -33,6 +62,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const unlockAdBtn = document.getElementById("unlock-ad-btn");
     const adTimerText = document.getElementById("ad-timer-text");
     const unlockBtnIcon = document.getElementById("unlock-btn-icon");
+
+    // Firebase Auth & History UI Elements
+    const btnLoginGoogle = document.getElementById("btn-login-google");
+    const userProfileBadge = document.getElementById("user-profile-badge");
+    const userAvatar = document.getElementById("user-avatar");
+    const userName = document.getElementById("user-name");
+    const btnSignOut = document.getElementById("btn-sign-out");
+
+    const navHistoryBtn = document.getElementById("nav-history-btn");
+    const historyModal = document.getElementById("history-modal");
+    const closeHistoryBtn = document.getElementById("close-history-btn");
+    const clearHistoryBtn = document.getElementById("clear-history-btn");
+    const historyList = document.getElementById("history-list");
+    const historyEmptyState = document.getElementById("history-empty-state");
+    const historySyncIndicator = document.getElementById("history-sync-indicator");
 
     let currentExtraction = null;
     let isUnlockedForAd = false;
@@ -84,14 +128,27 @@ document.addEventListener("DOMContentLoaded", () => {
         let data = null;
         let lastErr = null;
 
+        // Fetch Firebase ID Token if logged in
+        const headers = {
+            "Content-Type": "application/json"
+        };
+        if (window.JPFirebase && typeof window.JPFirebase.getIdToken === "function") {
+            try {
+                const token = await window.JPFirebase.getIdToken();
+                if (token) {
+                    headers["Authorization"] = `Bearer ${token}`;
+                }
+            } catch (te) {
+                console.warn("Could not attach Firebase auth token:", te);
+            }
+        }
+
         while (attempts < maxAttempts && !success) {
             attempts++;
             try {
                 const response = await fetch(`${API_BASE_URL}/api/extract`, {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    headers: headers,
                     body: JSON.stringify({ url: url })
                 });
 
@@ -122,6 +179,11 @@ document.addEventListener("DOMContentLoaded", () => {
             currentExtraction = data;
             renderResultCard(data);
             showToast("Media extracted successfully!", "success");
+
+            // Automatically record in Firebase Firestore / Local History
+            if (window.JPFirebase && typeof window.JPFirebase.saveDownload === "function") {
+                window.JPFirebase.saveDownload(data).catch(e => console.warn("Auto-save history notice:", e));
+            }
 
         } catch (err) {
             console.error("Extraction error:", err);
@@ -276,6 +338,367 @@ document.addEventListener("DOMContentLoaded", () => {
             if (e.target === privacyModal) hide(privacyModal);
         });
     }
+
+    // --- Firebase Authentication Handling ---
+    if (btnLoginGoogle) {
+        btnLoginGoogle.addEventListener("click", async () => {
+            try {
+                showToast("Signing in...", "info");
+                if (window.JPFirebase && typeof window.JPFirebase.signInWithGoogle === "function") {
+                    await window.JPFirebase.signInWithGoogle();
+                    showToast("Signed in successfully!", "success");
+                }
+            } catch (err) {
+                console.error("Login failed:", err);
+                showToast(err.message || "Failed to sign in. Please try again.", "warning");
+            }
+        });
+    }
+
+    if (btnSignOut) {
+        btnSignOut.addEventListener("click", async () => {
+            try {
+                if (window.JPFirebase && typeof window.JPFirebase.signOut === "function") {
+                    await window.JPFirebase.signOut();
+                    showToast("Signed out successfully.", "info");
+                }
+            } catch (err) {
+                console.error("Sign out error:", err);
+            }
+        });
+    }
+
+    // Subscribe to Auth state changes
+    if (window.JPFirebase && typeof window.JPFirebase.onAuthStateChanged === "function") {
+        window.JPFirebase.onAuthStateChanged((user) => {
+            if (user) {
+                hide(btnLoginGoogle);
+                show(userProfileBadge);
+                userProfileBadge.classList.add("flex");
+                userName.textContent = user.displayName || user.email || "Guest";
+                userAvatar.src = user.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80";
+                if (historySyncIndicator) {
+                    historySyncIndicator.textContent = (window.JPFirebase && window.JPFirebase.isConfigured) ? 
+                        `Synced to Firebase Cloud (${user.email || 'Guest'})` : 
+                        "Saved Locally (Standby Mode)";
+                }
+            } else {
+                show(btnLoginGoogle);
+                hide(userProfileBadge);
+                userProfileBadge.classList.remove("flex");
+                if (historySyncIndicator) {
+                    historySyncIndicator.textContent = "Synced via Firebase & Local Storage";
+                }
+            }
+        });
+    }
+
+    // --- User Download History Modal Handling ---
+    if (navHistoryBtn && historyModal) {
+        navHistoryBtn.addEventListener("click", async () => {
+            show(historyModal);
+            await renderHistoryModal();
+        });
+    }
+
+    if (closeHistoryBtn && historyModal) {
+        closeHistoryBtn.addEventListener("click", () => hide(historyModal));
+    }
+
+    if (clearHistoryBtn) {
+        clearHistoryBtn.addEventListener("click", async () => {
+            if (confirm("Are you sure you want to clear your download history?")) {
+                if (window.JPFirebase && typeof window.JPFirebase.clearDownloads === "function") {
+                    await window.JPFirebase.clearDownloads();
+                    await renderHistoryModal();
+                    showToast("Download history cleared.", "info");
+                }
+            }
+        });
+    }
+
+    if (historyModal) {
+        historyModal.addEventListener("click", (e) => {
+            if (e.target === historyModal) hide(historyModal);
+        });
+    }
+
+    async function renderHistoryModal() {
+        if (!historyList) return;
+        historyList.innerHTML = '<div class="py-6 text-center text-slate-400 text-xs"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading history...</div>';
+        hide(historyEmptyState);
+
+        let items = [];
+        if (window.JPFirebase && typeof window.JPFirebase.loadDownloads === "function") {
+            try {
+                items = await window.JPFirebase.loadDownloads();
+            } catch (err) {
+                console.error("Failed to load history:", err);
+            }
+        }
+
+        historyList.innerHTML = "";
+
+        if (!items || items.length === 0) {
+            show(historyEmptyState);
+            return;
+        }
+
+        hide(historyEmptyState);
+
+        items.forEach((item) => {
+            const row = document.createElement("div");
+            row.className = "flex items-center gap-3 py-3 first:pt-0 last:pb-0 hover:bg-slate-800/30 p-2 rounded-xl transition";
+            
+            const thumbSrc = item.thumbnail || "https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=200&auto=format&fit=crop";
+            const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Recent";
+
+            row.innerHTML = `
+                <img src="${thumbSrc}" alt="Thumbnail" class="w-16 h-12 rounded-lg object-cover bg-slate-950 flex-shrink-0 border border-slate-800">
+                <div class="flex-1 min-w-0">
+                    <h4 class="text-xs font-semibold text-slate-100 truncate">${item.title || "Video"}</h4>
+                    <div class="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                        <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">${item.platform || "Media"}</span>
+                        <span>${item.duration_formatted || "00:00"}</span>
+                        <span>• ${dateStr}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <button type="button" class="btn-history-extract px-2.5 py-1.5 rounded-lg bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-semibold transition flex items-center gap-1 cursor-pointer" title="Extract Again">
+                        <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
+                        <span class="hidden sm:inline">Extract</span>
+                    </button>
+                    <button type="button" class="btn-history-copy p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs transition cursor-pointer" title="Copy Link">
+                        <i class="fa-regular fa-copy"></i>
+                    </button>
+                </div>
+            `;
+
+            // Wire Extract button to re-fill URL and click extract
+            const extractBtn = row.querySelector(".btn-history-extract");
+            if (extractBtn && item.url) {
+                extractBtn.addEventListener("click", () => {
+                    hide(historyModal);
+                    urlInput.value = item.url;
+                    urlInput.scrollIntoView({ behavior: "smooth" });
+                    btnExtract.click();
+                });
+            }
+
+            // Wire Copy button
+            const copyBtn = row.querySelector(".btn-history-copy");
+            if (copyBtn && item.url) {
+                copyBtn.addEventListener("click", () => {
+                    navigator.clipboard.writeText(item.url);
+                    showToast("Video link copied to clipboard!", "success");
+                });
+            }
+
+            historyList.appendChild(row);
+        });
+    }
+
+    // --- Support & Donation (UPI & PayPal) Modal Handling ---
+    const supportModal = document.getElementById("support-modal");
+    const closeSupportBtn = document.getElementById("close-support-btn");
+    const navSupportBtn = document.getElementById("nav-support-btn");
+    const footerSupportBtn = document.getElementById("footer-support-btn");
+    const triggerSupportUpiBtns = document.querySelectorAll(".btn-open-support-modal-upi");
+    const triggerSupportPaypalBtns = document.querySelectorAll(".btn-open-support-modal-paypal");
+
+    const tabBtnUpi = document.getElementById("tab-btn-upi");
+    const tabBtnPaypal = document.getElementById("tab-btn-paypal");
+    const tabContentUpi = document.getElementById("tab-content-upi");
+    const tabContentPaypal = document.getElementById("tab-content-paypal");
+
+    const displayUpiId = document.getElementById("display-upi-id");
+    const copyUpiBtn = document.getElementById("copy-upi-btn");
+    const upiQrImage = document.getElementById("upi-qr-image");
+    const directUpiLink = document.getElementById("direct-upi-link");
+    const directUpiText = document.getElementById("direct-upi-text");
+    const customUpiAmountInput = document.getElementById("custom-upi-amount");
+    const upiAmountPills = document.querySelectorAll("#upi-amount-pills .upi-pill");
+
+    const directPaypalBtn = document.getElementById("direct-paypal-btn");
+    const directPaypalText = document.getElementById("direct-paypal-text");
+    const copyPaypalBtn = document.getElementById("copy-paypal-btn");
+    const displayPaypalEmail = document.getElementById("display-paypal-email");
+    const customPaypalAmountInput = document.getElementById("custom-paypal-amount");
+    const paypalAmountPills = document.querySelectorAll("#paypal-amount-pills .paypal-pill");
+
+    // Get active config or fallback
+    const payConfig = window.JPPaymentConfig || {
+        upiId: "vickyunion99@ibl",
+        upiPayeeName: "VIKAS PRABHU GUDARAD",
+        paypalEmail: "gudaradvikas09@gmail.com",
+        paypalUrl: "https://www.paypal.com/donate?business=gudaradvikas09@gmail.com&no_recurring=0&currency_code=USD"
+    };
+
+    let selectedUpiAmount = 100;
+    let selectedPaypalAmount = 5;
+
+    function updateUpiDetails(amount) {
+        selectedUpiAmount = amount;
+        const upiUri = `upi://pay?pa=${encodeURIComponent(payConfig.upiId)}&pn=${encodeURIComponent(payConfig.upiPayeeName)}&am=${amount}&cu=INR`;
+        if (directUpiLink) {
+            directUpiLink.href = upiUri;
+        }
+        if (directUpiText) {
+            directUpiText.textContent = `Open in PhonePe / GPay / Paytm (₹${amount})`;
+        }
+        if (displayUpiId) {
+            displayUpiId.textContent = payConfig.upiId;
+        }
+    }
+
+    function updatePaypalDetails(amount) {
+        selectedPaypalAmount = amount;
+        if (directPaypalBtn) {
+            directPaypalBtn.href = `https://www.paypal.com/donate?business=${encodeURIComponent(payConfig.paypalEmail)}&amount=${amount}&currency_code=USD`;
+        }
+        if (directPaypalText) {
+            directPaypalText.textContent = `Pay $${amount} with PayPal`;
+        }
+        if (displayPaypalEmail && payConfig.paypalEmail) {
+            displayPaypalEmail.textContent = payConfig.paypalEmail;
+        }
+    }
+
+    // Initial config apply
+    updateUpiDetails(100);
+    updatePaypalDetails(5);
+
+    // Custom Amount Input Listeners
+    if (customUpiAmountInput) {
+        customUpiAmountInput.addEventListener("input", (e) => {
+            const raw = parseFloat(e.target.value);
+            const val = (!isNaN(raw) && raw > 0) ? raw : 1;
+            
+            upiAmountPills.forEach(p => {
+                if (parseInt(p.dataset.amount, 10) === val) {
+                    p.classList.add("active", "border-purple-500", "bg-purple-600/20", "text-purple-300", "font-bold");
+                    p.classList.remove("border-slate-700", "bg-slate-900", "text-slate-300");
+                } else {
+                    p.classList.remove("active", "border-purple-500", "bg-purple-600/20", "text-purple-300", "font-bold");
+                    p.classList.add("border-slate-700", "bg-slate-900", "text-slate-300");
+                }
+            });
+
+            updateUpiDetails(val);
+        });
+    }
+
+    if (customPaypalAmountInput) {
+        customPaypalAmountInput.addEventListener("input", (e) => {
+            const raw = parseFloat(e.target.value);
+            const val = (!isNaN(raw) && raw > 0) ? raw : 1;
+
+            paypalAmountPills.forEach(p => {
+                if (parseInt(p.dataset.amount, 10) === val) {
+                    p.classList.add("active", "border-sky-500", "bg-sky-600/20", "text-sky-300", "font-bold");
+                    p.classList.remove("border-slate-700", "bg-slate-900", "text-slate-300");
+                } else {
+                    p.classList.remove("active", "border-sky-500", "bg-sky-600/20", "text-sky-300", "font-bold");
+                    p.classList.add("border-slate-700", "bg-slate-900", "text-slate-300");
+                }
+            });
+
+            updatePaypalDetails(val);
+        });
+    }
+
+    function switchSupportTab(tab) {
+        if (tab === "upi") {
+            show(tabContentUpi);
+            hide(tabContentPaypal);
+            if (tabBtnUpi) tabBtnUpi.className = "py-2.5 rounded-lg transition flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow cursor-pointer";
+            if (tabBtnPaypal) tabBtnPaypal.className = "py-2.5 rounded-lg transition flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200 cursor-pointer";
+        } else {
+            hide(tabContentUpi);
+            show(tabContentPaypal);
+            if (tabBtnPaypal) tabBtnPaypal.className = "py-2.5 rounded-lg transition flex items-center justify-center gap-2 bg-gradient-to-r from-sky-600 to-blue-600 text-white shadow cursor-pointer";
+            if (tabBtnUpi) tabBtnUpi.className = "py-2.5 rounded-lg transition flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200 cursor-pointer";
+        }
+    }
+
+    if (tabBtnUpi) tabBtnUpi.addEventListener("click", () => switchSupportTab("upi"));
+    if (tabBtnPaypal) tabBtnPaypal.addEventListener("click", () => switchSupportTab("paypal"));
+
+    function openSupportModal(defaultTab = "upi") {
+        switchSupportTab(defaultTab);
+        show(supportModal);
+    }
+
+    if (navSupportBtn) navSupportBtn.addEventListener("click", () => openSupportModal("upi"));
+    if (footerSupportBtn) footerSupportBtn.addEventListener("click", () => openSupportModal("upi"));
+
+    triggerSupportUpiBtns.forEach(btn => {
+        btn.addEventListener("click", () => openSupportModal("upi"));
+    });
+    triggerSupportPaypalBtns.forEach(btn => {
+        btn.addEventListener("click", () => openSupportModal("paypal"));
+    });
+
+    if (closeSupportBtn && supportModal) {
+        closeSupportBtn.addEventListener("click", () => hide(supportModal));
+    }
+    if (supportModal) {
+        supportModal.addEventListener("click", (e) => {
+            if (e.target === supportModal) hide(supportModal);
+        });
+    }
+
+    // Copy UPI ID button
+    if (copyUpiBtn) {
+        copyUpiBtn.addEventListener("click", () => {
+            navigator.clipboard.writeText(payConfig.upiId);
+            showToast(`UPI ID (${payConfig.upiId}) copied to clipboard!`, "success");
+        });
+    }
+
+    // Copy PayPal email button
+    if (copyPaypalBtn) {
+        copyPaypalBtn.addEventListener("click", () => {
+            navigator.clipboard.writeText(payConfig.paypalEmail);
+            showToast(`PayPal email (${payConfig.paypalEmail}) copied to clipboard!`, "success");
+        });
+    }
+
+    // UPI Amount Pill clicks
+    upiAmountPills.forEach(pill => {
+        pill.addEventListener("click", () => {
+            upiAmountPills.forEach(p => {
+                p.classList.remove("active", "border-purple-500", "bg-purple-600/20", "text-purple-300", "font-bold");
+                p.classList.add("border-slate-700", "bg-slate-900", "text-slate-300");
+            });
+            pill.classList.add("active", "border-purple-500", "bg-purple-600/20", "text-purple-300", "font-bold");
+            pill.classList.remove("border-slate-700", "bg-slate-900", "text-slate-300");
+
+            const amt = parseInt(pill.dataset.amount, 10) || 100;
+            if (customUpiAmountInput) {
+                customUpiAmountInput.value = amt;
+            }
+            updateUpiDetails(amt);
+        });
+    });
+
+    // PayPal Amount Pill clicks
+    paypalAmountPills.forEach(pill => {
+        pill.addEventListener("click", () => {
+            paypalAmountPills.forEach(p => {
+                p.classList.remove("active", "border-sky-500", "bg-sky-600/20", "text-sky-300", "font-bold");
+                p.classList.add("border-slate-700", "bg-slate-900", "text-slate-300");
+            });
+            pill.classList.add("active", "border-sky-500", "bg-sky-600/20", "text-sky-300", "font-bold");
+            pill.classList.remove("border-slate-700", "bg-slate-900", "text-slate-300");
+
+            const amt = parseInt(pill.dataset.amount, 10) || 5;
+            if (customPaypalAmountInput) {
+                customPaypalAmountInput.value = amt;
+            }
+            updatePaypalDetails(amt);
+        });
+    });
 
     // Helper functions
     function show(el) { if (el) el.classList.remove("hidden"); }
