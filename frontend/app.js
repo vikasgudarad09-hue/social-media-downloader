@@ -539,7 +539,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function updateUpiDetails(amount) {
         selectedUpiAmount = amount;
-        const upiUri = `upi://pay?pa=${encodeURIComponent(payConfig.upiId)}&pn=${encodeURIComponent(payConfig.upiPayeeName)}&am=${amount}&cu=INR`;
+        const formattedAmount = (typeof amount === "number" ? amount : parseFloat(amount) || 1).toFixed(2);
+        const payeeEncoded = encodeURIComponent(payConfig.upiPayeeName || "VIKAS PRABHU GUDARAD");
+        const upiUri = `upi://pay?pa=${encodeURIComponent(payConfig.upiId)}&pn=${payeeEncoded}&am=${formattedAmount}&cu=INR&tn=Support%20Jayaprabhu%20Creations`;
+        
         if (directUpiLink) {
             directUpiLink.href = upiUri;
         }
@@ -549,6 +552,36 @@ document.addEventListener("DOMContentLoaded", () => {
         if (displayUpiId) {
             displayUpiId.textContent = payConfig.upiId;
         }
+        const qrAmountBadge = document.getElementById("qr-amount-badge");
+        if (qrAmountBadge) {
+            qrAmountBadge.textContent = `₹${amount}`;
+        }
+    }
+
+    // Direct UPI Link Click Handler (Smart PC vs Mobile handling)
+    if (directUpiLink) {
+        directUpiLink.addEventListener("click", (e) => {
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (!isMobile) {
+                // On PC / Laptop, prevent dead link since Windows has no UPI app
+                e.preventDefault();
+                navigator.clipboard.writeText(payConfig.upiId);
+
+                // Highlight the QR code container visually
+                const qrContainer = document.getElementById("upi-qr-container");
+                if (qrContainer) {
+                    qrContainer.classList.add("ring-4", "ring-purple-400", "scale-105");
+                    setTimeout(() => {
+                        qrContainer.classList.remove("ring-4", "ring-purple-400", "scale-105");
+                    }, 1200);
+                }
+
+                showToast(`📲 UPI apps only open on mobile phones! On PC/Laptop, please scan the QR code above with your phone camera, PhonePe, or GPay. (UPI ID copied!)`, "info", 6500);
+            } else {
+                // On Mobile, navigate to trigger app chooser
+                window.location.href = directUpiLink.href;
+            }
+        });
     }
 
     function updatePaypalDetails(amount) {

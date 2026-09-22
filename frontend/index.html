@@ -635,9 +635,10 @@
                         Scan with <strong>PhonePe</strong>, <strong>Google Pay</strong>, <strong>Paytm</strong>, <strong>BHIM</strong>, or any UPI App
                     </p>
 
-                    <!-- Official PhonePe QR Banner -->
-                    <div class="relative max-w-[210px] mx-auto rounded-2xl overflow-hidden shadow-2xl shadow-purple-600/20 border-2 border-purple-500/50 bg-white p-1">
+                    <!-- Official PhonePe QR Banner & Dynamic QR -->
+                    <div id="upi-qr-container" class="relative max-w-[210px] mx-auto rounded-2xl overflow-hidden shadow-2xl shadow-purple-600/20 border-2 border-purple-500/50 bg-white p-1 text-center transition-all duration-300">
                         <img id="upi-qr-image" src="images/phonepe_qr.jpg" alt="PhonePe QR Code - Vikas Prabhu Gudarad" class="w-full h-auto object-contain rounded-xl">
+                        <span id="qr-amount-badge" class="absolute top-2 right-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow border border-white/20">₹100</span>
                     </div>
 
                     <!-- Verified Payee Info -->
@@ -695,10 +696,21 @@
                     </div>
 
                     <!-- Direct Open in UPI App (Mobile) with pulse glow animation -->
-                    <a id="direct-upi-link" href="upi://pay?pa=vickyunion99@ibl&pn=VIKAS%20PRABHU%20GUDARAD&am=100&cu=INR" class="animate-btn-pulse w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-xl shadow-purple-600/30 transition flex items-center justify-center gap-2 cursor-pointer">
+                    <a id="direct-upi-link" href="upi://pay?pa=vickyunion99@ibl&pn=VIKAS%20PRABHU%20GUDARAD&am=100.00&cu=INR&tn=Support%20Jayaprabhu%20Creations" class="animate-btn-pulse w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-xl shadow-purple-600/30 transition flex items-center justify-center gap-2 cursor-pointer">
                         <i class="fa-solid fa-mobile-screen text-sm"></i>
                         <span id="direct-upi-text">Open in PhonePe / GPay / Paytm (₹100)</span>
                     </a>
+
+                    <!-- Device Explanation Hint -->
+                    <div class="p-2.5 rounded-xl bg-purple-950/40 border border-purple-900/50 text-[11px] text-purple-200/90 text-left space-y-1">
+                        <div class="flex items-center gap-1.5 font-bold text-purple-300">
+                            <i class="fa-solid fa-circle-info text-xs"></i> How to Pay:
+                        </div>
+                        <p class="text-[10.5px] leading-relaxed text-slate-300">
+                            • <strong>On Mobile Phone:</strong> Tap the purple button above to open PhonePe, GPay, or Paytm directly.<br>
+                            • <strong>On PC / Laptop:</strong> Open PhonePe or Google Pay on your phone and <strong>scan the QR code above</strong>, or copy the UPI ID!
+                        </p>
+                    </div>
                 </div>
             </div>
 
