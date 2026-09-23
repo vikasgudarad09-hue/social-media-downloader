@@ -1,11 +1,7 @@
-// Automatically routes to relative path on Firebase Hosting or localhost (zero external backend dependency)
-const isFirebaseOrLocal = (
-    window.location.hostname.includes("web.app") || 
-    window.location.hostname.includes("firebaseapp.com") ||
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1"
-);
-const API_BASE_URL = isFirebaseOrLocal ? "" : "https://social-media-downloader-production-19ab.up.railway.app";
+// Active Backend API service hosted on Render (100% Free, zero external dependency)
+const API_BASE_URL = (
+    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+) ? "http://127.0.0.1:8000" : "https://jpmediasaver-api.onrender.com";
 
 document.addEventListener("DOMContentLoaded", () => {
     // --- Jayaprabhu Creations Company Splash Screen ---
