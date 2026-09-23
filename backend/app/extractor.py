@@ -80,8 +80,9 @@ def http_get_json(url: str, timeout: int = 8) -> Optional[Dict]:
         req = urllib.request.Request(
             url,
             headers={
-                'User-Agent': 'Mozilla/5.0 (compatible; MediaBot/1.0)',
-                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
             }
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -317,7 +318,7 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         base.update({
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'ios', 'tv_embedded'],
+                    'player_client': ['web_safari', 'tv', 'ios', 'mweb', 'android'],
                 }
             },
             'format': 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio/best',
@@ -642,6 +643,7 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
             }
     except Exception as e:
         ytdlp_error = str(e)
+        print(f"[EXTRACT WARNING] yt-dlp failed for {platform} ({url}): {e}")
 
     # ── Instagram Engine 2: Embed Scraper Fallback ──
     if platform == "Instagram":
@@ -662,6 +664,8 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
                 return parse_invidious_response(inv_data, video_id, url)
 
     # ── All engines failed ──
+    detailed_error = ytdlp_error or "Could not extract media. This video may be private, removed, or region-locked."
+    print(f"[EXTRACT FAILED] Final failure for {platform} ({url}): {detailed_error}")
     return {
         "success": False,
         "url": url,
@@ -673,7 +677,7 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
         "video_url": None,
         "audio_url": None,
         "formats": [],
-        "error": "Could not extract media. This video may be private, removed, or region-locked.",
+        "error": detailed_error,
     }
 
 
