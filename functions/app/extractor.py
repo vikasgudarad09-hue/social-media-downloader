@@ -308,19 +308,33 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         'no_warnings': True,
         'skip_download': True,
         'extract_flat': False,
-        'socket_timeout': 12,
-        'retries': 2,
+        'noplaylist': True,
+        'socket_timeout': 15,
+        'retries': 3,
         'ignoreerrors': False,
     }
+
+    # Support cookies file if present or via environment variable
+    cookie_file = os.path.join(os.path.dirname(__file__), "..", "cookies.txt")
+    if os.path.exists(cookie_file):
+        base['cookiefile'] = cookie_file
+    elif os.environ.get("YOUTUBE_COOKIES"):
+        import tempfile
+        temp_cookie_path = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
+        try:
+            with open(temp_cookie_path, "w", encoding="utf-8") as f:
+                f.write(os.environ["YOUTUBE_COOKIES"])
+            base['cookiefile'] = temp_cookie_path
+        except Exception:
+            pass
 
     if platform == "YouTube":
         base.update({
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['web_safari', 'tv', 'ios', 'mweb', 'android'],
+                    'player_client': ['android_vr', 'tv_downgraded', 'web_safari', 'ios', 'mweb', 'android'],
                 }
             },
-            'format': 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio/best',
             'geo_bypass': True,
         })
     elif platform == "Instagram":
@@ -330,7 +344,6 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
     elif platform == "TikTok":
         base.update({
             'format': 'best[ext=mp4]/best',
-            'extractor_args': {'tiktok': {'api_hostname': 'api22-normal-c-alisg.tiktokv.com'}},
         })
     else:
         base.update({
@@ -459,43 +472,78 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
 # ─────────────────────────────────────────────
 def try_tikwm(url: str) -> Optional[Dict[str, Any]]:
     try:
+        post_data = urllib.parse.urlencode({
+            'url': url,
+            'count': 12,
+            'cursor': 0,
+            'web': 1,
+            'hd': 1
+        }).encode('utf-8')
         req = urllib.request.Request(
-            f"https://www.tikwm.com/api/?url={urllib.parse.quote(url)}",
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            "https://www.tikwm.com/api/",
+            data=post_data,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json, text/plain, */*',
+                'Origin': 'https://www.tikwm.com',
+                'Referer': 'https://www.tikwm.com/'
+            }
         )
-        with urllib.request.urlopen(req, timeout=6) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode('utf-8', errors='ignore'))
             if data.get("code") == 0 and data.get("data"):
                 d = data["data"]
                 play_url = d.get("play") or d.get("wmplay")
+                hd_url = d.get("hdplay")
+                if hd_url and hd_url.startswith("/"):
+                    hd_url = "https://www.tikwm.com" + hd_url
+                if play_url and play_url.startswith("/"):
+                    play_url = "https://www.tikwm.com" + play_url
+
+                main_url = hd_url or play_url
+                if not main_url:
+                    return None
+
+                dur = d.get("duration", 0) or 0
+                formats = []
+                if hd_url:
+                    formats.append({
+                        "format_id": "hd",
+                        "ext": "mp4",
+                        "resolution": "HD No Watermark",
+                        "filesize_approx": format_filesize(d.get("size")),
+                        "url": hd_url,
+                        "vcodec": "h264",
+                        "acodec": "aac"
+                    })
                 if play_url:
-                    if play_url.startswith("/"):
-                        play_url = "https://www.tikwm.com" + play_url
-                    dur = d.get("duration", 0) or 0
-                    return {
-                        "success": True,
-                        "url": url,
-                        "platform": "TikTok",
-                        "title": str(d.get("title") or "TikTok Video"),
-                        "thumbnail": d.get("cover"),
-                        "duration": dur,
-                        "duration_formatted": format_duration(dur),
-                        "video_url": play_url,
-                        "audio_url": d.get("music") or play_url,
-                        "formats": [{
-                            "format_id": "hd",
-                            "ext": "mp4",
-                            "resolution": "HD",
-                            "filesize_approx": None,
-                            "url": play_url,
-                            "vcodec": "h264",
-                            "acodec": "aac"
-                        }],
-                        "requires_ad_unlock": (dur > 900),
-                        "error": None
-                    }
-    except Exception:
-        pass
+                    formats.append({
+                        "format_id": "sd",
+                        "ext": "mp4",
+                        "resolution": "Standard",
+                        "filesize_approx": format_filesize(d.get("wm_size") or d.get("size")),
+                        "url": play_url,
+                        "vcodec": "h264",
+                        "acodec": "aac"
+                    })
+
+                return {
+                    "success": True,
+                    "url": url,
+                    "platform": "TikTok",
+                    "title": str(d.get("title") or "TikTok Video"),
+                    "thumbnail": d.get("cover"),
+                    "duration": dur,
+                    "duration_formatted": format_duration(dur),
+                    "video_url": main_url,
+                    "audio_url": d.get("music") or main_url,
+                    "formats": formats,
+                    "requires_ad_unlock": (dur > 900),
+                    "error": None
+                }
+    except Exception as e:
+        print(f"[TIKWM ERROR]: {e}")
     return None
 
 # ─────────────────────────────────────────────

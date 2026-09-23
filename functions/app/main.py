@@ -42,7 +42,7 @@ def read_root():
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "firebase": firebase_info["mode"],
         "endpoints": {
             "extract": "POST /api/extract",
