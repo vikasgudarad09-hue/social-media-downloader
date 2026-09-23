@@ -31,13 +31,19 @@ def detect_platform(url: str) -> str:
 # ─────────────────────────────────────────────
 # Formatters
 # ─────────────────────────────────────────────
-def format_duration(seconds: Optional[int]) -> str:
-    if not seconds or seconds <= 0:
+def format_duration(seconds: Optional[Any]) -> str:
+    if not seconds:
         return "N/A"
-    m, s = divmod(seconds, 60)
+    try:
+        sec = int(float(seconds))
+    except (ValueError, TypeError):
+        return "N/A"
+    if sec <= 0:
+        return "N/A"
+    m, s = divmod(sec, 60)
     h, m = divmod(m, 60)
     if h > 0:
-        return f"{h:02d}:{m:02d}:{s:02d}"
+        return f"{h:02d}:{s:02d}"
     return f"{m:02d}:{s:02d}"
 
 def format_filesize(bytes_val: Optional[int]) -> Optional[str]:

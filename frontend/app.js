@@ -152,9 +152,28 @@ document.addEventListener("DOMContentLoaded", () => {
                     body: JSON.stringify({ url: url })
                 });
 
+                const contentType = response.headers.get("content-type") || "";
+
+                if (!response.ok) {
+                    if (contentType.includes("application/json")) {
+                        const errData = await response.json();
+                        throw new Error(errData.detail || errData.error || `Server returned error (${response.status})`);
+                    } else if (response.status === 404) {
+                        throw new Error("Backend API is not online or endpoint not found (HTTP 404). Please ensure the backend server is deployed.");
+                    } else if (response.status === 502 || response.status === 503) {
+                        throw new Error("Backend API server is currently waking up or unavailable. Please retry in a few seconds.");
+                    } else {
+                        throw new Error(`Server returned HTTP ${response.status}. The backend API may be offline.`);
+                    }
+                }
+
+                if (!contentType.includes("application/json")) {
+                    throw new Error("Backend returned an unexpected response format. Please verify backend API status.");
+                }
+
                 data = await response.json();
 
-                if (response.ok && data.success) {
+                if (data.success) {
                     success = true;
                 } else {
                     lastErr = new Error(data.error || data.detail || "Extraction failed.");
@@ -200,12 +219,9 @@ document.addEventListener("DOMContentLoaded", () => {
         previewDuration.textContent = data.duration_formatted || "00:00";
         previewThumbnail.src = data.thumbnail || "https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=600&auto=format&fit=crop";
 
-        const isLongVideo = data.duration > 900 || data.requires_ad_unlock;
         metaPlatform.textContent = `Platform: ${data.platform || 'Social Media'}`;
-        metaQuality.textContent = isLongVideo ? "Quality: HD (Ad Lock >15m)" : "Quality: HD";
-        previewPlatformBadge.innerHTML = isLongVideo ? 
-            `<i class="fa-solid fa-clock text-xs text-amber-300"></i> ${data.platform} (>15m)` : 
-            `<i class="fa-solid fa-play text-xs"></i> ${data.platform}`;
+        metaQuality.textContent = "Quality: HD";
+        previewPlatformBadge.innerHTML = `<i class="fa-solid fa-play text-xs"></i> ${data.platform || 'Media'}`;
 
         const safeTitle = (data.title || "video").replace(/[^\w\s.-]/g, "_").substring(0, 50);
 
@@ -252,19 +268,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Intercept Download Clicks for Long Videos (>15 Mins)
-    function handleDownloadGate(e, targetUrl) {
-        const isLongVideo = currentExtraction && (currentExtraction.duration > 900 || currentExtraction.requires_ad_unlock);
-        if (isLongVideo && !isUnlockedForAd) {
-            e.preventDefault();
-            pendingDownloadTarget = targetUrl;
-            openAdUnlockModal();
-        }
-    }
-
-    downloadVideoBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadVideoBtn.href));
-    downloadAudioBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadAudioBtn.href));
-    downloadFormatBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadFormatBtn.href));
+    // Direct Instant Downloads (Zero Ad Interruption)
+    // Buttons naturally trigger direct file streaming without modal gates
 
     // Ad Unlock Modal Logic
     function openAdUnlockModal() {
