@@ -307,6 +307,7 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         'no_warnings': True,
         'skip_download': True,
         'extract_flat': False,
+        'noplaylist': True,
         'socket_timeout': 12,
         'retries': 2,
         'ignoreerrors': False,
@@ -390,7 +391,7 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
         video_id = extract_youtube_id(url)
         target_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else url
 
-        for client_type in ['TV', 'IOS']:
+        for client_type in ['ANDROID', 'IOS', 'MWEB']:
 
 
             try:
@@ -573,6 +574,10 @@ def extract_media_info(url: str) -> Dict[str, Any]:
     clean_url = url.strip()
     if "instagram.com" in clean_url.lower():
         clean_url = normalize_instagram_url(clean_url)
+    elif "youtube.com" in clean_url.lower() or "youtu.be" in clean_url.lower():
+        yt_id = extract_youtube_id(clean_url)
+        if yt_id:
+            clean_url = f"https://www.youtube.com/watch?v={yt_id}"
 
     # Check cache first
     now = time.time()
@@ -615,7 +620,10 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
             thumbnail = info.get('thumbnail')
             if not thumbnail and info.get('thumbnails'):
                 thumbnail = info['thumbnails'][-1].get('url')
-            duration = info.get('duration') or 0
+            try:
+                duration = int(float(info.get('duration') or 0))
+            except (ValueError, TypeError):
+                duration = 0
             extracted_formats, video_url, audio_url = build_formats(info)
 
             return {

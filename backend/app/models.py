@@ -1,5 +1,5 @@
 from pydantic import BaseModel, HttpUrl, field_validator
-from typing import Optional, List
+from typing import Optional, List, Union
 import re
 
 class ExtractRequest(BaseModel):
@@ -35,7 +35,7 @@ class ExtractResponse(BaseModel):
     platform: str
     title: str
     thumbnail: Optional[str] = None
-    duration: Optional[int] = 0
+    duration: Optional[Union[int, float]] = 0
     duration_formatted: str = "00:00"
     video_url: Optional[str] = None
     audio_url: Optional[str] = None
@@ -49,7 +49,7 @@ class UserDownloadRecordRequest(BaseModel):
     url: str
     platform: str
     thumbnail: Optional[str] = None
-    duration: Optional[int] = 0
+    duration: Optional[Union[int, float]] = 0
     duration_formatted: Optional[str] = "00:00"
     format_chosen: Optional[str] = "Direct MP4"
 

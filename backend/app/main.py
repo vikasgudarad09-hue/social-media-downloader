@@ -74,7 +74,7 @@ def firebase_status():
 @app.post("/api/extract", response_model=ExtractResponse)
 def extract_media(request: ExtractRequest, authorization: Optional[str] = Header(None)):
     user = None
-    if authorization and authorization.startswith("Bearer "):
+    if authorization and isinstance(authorization, str) and authorization.startswith("Bearer "):
         token = authorization.split("Bearer ", 1)[1].strip()
         user = verify_firebase_token(token)
 
@@ -149,15 +149,26 @@ async def proxy_download(url: str, filename: Optional[str] = "download.mp4"):
 
     # Sanitize filename
     safe_filename = re.sub(r'[^\w\s.-]', '', filename or "video.mp4").strip() or "video.mp4"
-
-    client = httpx.AsyncClient(follow_redirects=True, timeout=60.0)
+    client = httpx.AsyncClient(follow_redirects=True, timeout=90.0)
 
     try:
-        req = client.build_request("GET", url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        })
+        req_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        }
+        if "tiktok" in url.lower():
+            req_headers["Referer"] = "https://www.tiktok.com/"
+        elif "instagram" in url.lower():
+            req_headers["Referer"] = "https://www.instagram.com/"
 
+        req = client.build_request("GET", url, headers=req_headers)
         response = await client.send(req, stream=True)
+
+        if response.status_code >= 400:
+            await response.aclose()
+            await client.aclose()
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url=url, status_code=302)
+
         content_type = response.headers.get("content-type", "application/octet-stream")
 
         async def media_stream():
@@ -177,9 +188,10 @@ async def proxy_download(url: str, filename: Optional[str] = "download.mp4"):
 
         return StreamingResponse(media_stream(), media_type=content_type, headers=headers)
 
-    except Exception as e:
+    except Exception:
         await client.aclose()
-        raise HTTPException(status_code=500, detail=f"Download proxy error: {str(e)}")
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=url, status_code=302)
 
 if __name__ == "__main__":
     import uvicorn
