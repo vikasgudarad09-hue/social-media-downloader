@@ -317,10 +317,10 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         base.update({
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['mweb', 'web', 'android', 'ios'],
+                    'player_client': ['android', 'ios', 'tv_embedded'],
                 }
             },
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'format': 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio/best',
             'geo_bypass': True,
         })
     elif platform == "Instagram":
