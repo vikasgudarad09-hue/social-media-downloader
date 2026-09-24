@@ -300,6 +300,43 @@ def parse_invidious_response(data: Dict, video_id: str, url: str) -> Dict[str, A
     }
 
 # ─────────────────────────────────────────────
+# Dynamic YouTube visitor session cookie generator
+# ─────────────────────────────────────────────
+_cached_cookie_path: Optional[str] = None
+_cached_cookie_time: float = 0
+
+def get_visitor_cookie_file() -> Optional[str]:
+    """Dynamically generate or return cached visitor session cookies for YouTube."""
+    global _cached_cookie_path, _cached_cookie_time
+    now = time.time()
+    if _cached_cookie_path and os.path.exists(_cached_cookie_path) and (now - _cached_cookie_time < 7200):
+        return _cached_cookie_path
+
+    try:
+        import requests
+        import tempfile
+        s = requests.Session()
+        s.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        })
+        r = s.get('https://www.youtube.com', timeout=5)
+        if s.cookies:
+            lines = ['# Netscape HTTP Cookie File']
+            for c in s.cookies:
+                domain = c.domain if c.domain.startswith('.') else f'.{c.domain}'
+                lines.append(f'{domain}\tTRUE\t/\tTRUE\t2147483647\t{c.name}\t{c.value}')
+            temp_path = os.path.join(tempfile.gettempdir(), "yt_visitor_cookies.txt")
+            with open(temp_path, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(lines))
+            _cached_cookie_path = temp_path
+            _cached_cookie_time = now
+            return temp_path
+    except Exception as e:
+        print(f"[DYNAMIC COOKIE WARNING]: {e}")
+    return None
+
+# ─────────────────────────────────────────────
 # Build yt-dlp options per platform
 # ─────────────────────────────────────────────
 def build_ydl_opts(platform: str) -> Dict[str, Any]:
@@ -327,6 +364,10 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
             base['cookiefile'] = temp_cookie_path
         except Exception:
             pass
+    elif platform == "YouTube":
+        dyn_cookie = get_visitor_cookie_file()
+        if dyn_cookie:
+            base['cookiefile'] = dyn_cookie
 
     if platform == "YouTube":
         base.update({
