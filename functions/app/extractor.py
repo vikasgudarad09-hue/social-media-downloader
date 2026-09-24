@@ -332,7 +332,7 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         base.update({
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android_vr', 'tv_downgraded', 'web_safari', 'ios', 'mweb', 'android'],
+                    'player_client': ['android', 'android_vr'],
                 }
             },
             'geo_bypass': True,
@@ -389,8 +389,20 @@ def build_formats(info: Dict):
             "acodec": acodec,
         })
 
-    if not video_url:
+    # Prioritize progressive formats (both audio and video included)
+    progressive = [f for f in extracted_formats if f.get('vcodec') != 'none' and f.get('acodec') != 'none']
+    if progressive:
+        video_url = progressive[-1]['url']
+    elif not video_url:
         video_url = info.get('url') or (extracted_formats[-1]["url"] if extracted_formats else None)
+
+    if not audio_url:
+        audio_only = [f for f in extracted_formats if f.get('vcodec') == 'none' and f.get('acodec') != 'none']
+        if audio_only:
+            audio_url = audio_only[-1]['url']
+        elif progressive:
+            audio_url = progressive[-1]['url']
+
     return extracted_formats, video_url, audio_url
 
 # ─────────────────────────────────────────────
@@ -404,7 +416,7 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
         video_id = extract_youtube_id(url)
         target_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else url
 
-        for client_type in ['TV', 'IOS']:
+        for client_type in ['ANDROID']:
 
 
             try:
@@ -638,19 +650,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
 def _do_extract_media_info(url: str) -> Dict[str, Any]:
     platform = detect_platform(url)
 
-    # ── TikTok Engine 1: TikWM (fast 0.3s) ──
-    if platform == "TikTok":
-        tikwm_res = try_tikwm(url)
-        if tikwm_res:
-            return tikwm_res
-
-    # ── YouTube Engine 1: pytubefix ──
-    if platform == "YouTube":
-        pytube_res = try_pytubefix(url)
-        if pytube_res:
-            return pytube_res
-
-    # ── Engine 2: yt-dlp ──
+    # ── Primary Engine: yt-dlp (fast 1-2s) ──
     ytdlp_error = None
     try:
         with yt_dlp.YoutubeDL(build_ydl_opts(platform)) as ydl:
@@ -684,6 +684,21 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
     except Exception as e:
         ytdlp_error = str(e)
         print(f"[EXTRACT WARNING] yt-dlp failed for {platform} ({url}): {e}")
+
+    # ── YouTube Engine Fallback: pytubefix ──
+    if platform == "YouTube":
+        try:
+            pytube_res = try_pytubefix(url)
+            if pytube_res:
+                return pytube_res
+        except Exception as pe:
+            print(f"[PYTUBEFIX ERROR]: {pe}")
+
+    # ── TikTok Engine Fallback: TikWM ──
+    if platform == "TikTok":
+        tikwm_res = try_tikwm(url)
+        if tikwm_res:
+            return tikwm_res
 
     # ── Instagram Engine 2: Embed Scraper Fallback ──
     if platform == "Instagram":

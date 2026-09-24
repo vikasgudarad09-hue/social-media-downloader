@@ -4,6 +4,9 @@ const API_BASE_URL = (
 ) ? "http://127.0.0.1:8000" : "https://jpmediasaver-api.onrender.com";
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Pre-warm Render backend in background so it is instantly awake
+    fetch(`${API_BASE_URL}/health`).catch(() => {});
+
     // --- Jayaprabhu Creations Company Splash Screen ---
     const splashScreen = document.getElementById("company-splash-screen");
     const skipSplashBtn = document.getElementById("skip-splash-btn");
@@ -118,8 +121,6 @@ document.addEventListener("DOMContentLoaded", () => {
         setButtonLoading(true);
         isUnlockedForAd = false;
 
-        let attempts = 0;
-        const maxAttempts = 2;
         let success = false;
         let data = null;
         let lastErr = null;
@@ -139,49 +140,50 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        while (attempts < maxAttempts && !success) {
-            attempts++;
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/extract`, {
-                    method: "POST",
-                    headers: headers,
-                    body: JSON.stringify({ url: url })
-                });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-                const contentType = response.headers.get("content-type") || "";
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/extract`, {
+                method: "POST",
+                headers: headers,
+                body: JSON.stringify({ url: url }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
 
-                if (!response.ok) {
-                    if (contentType.includes("application/json")) {
-                        const errData = await response.json();
-                        throw new Error(errData.detail || errData.error || `Server returned error (${response.status})`);
-                    } else if (response.status === 404) {
-                        throw new Error("Backend API is not online or endpoint not found (HTTP 404). Please ensure the backend server is deployed.");
-                    } else if (response.status === 502 || response.status === 503) {
-                        throw new Error("Backend API server is currently waking up or unavailable. Please retry in a few seconds.");
-                    } else {
-                        throw new Error(`Server returned HTTP ${response.status}. The backend API may be offline.`);
-                    }
-                }
+            const contentType = response.headers.get("content-type") || "";
 
-                if (!contentType.includes("application/json")) {
-                    throw new Error("Backend returned an unexpected response format. Please verify backend API status.");
-                }
-
-                data = await response.json();
-
-                if (data.success) {
-                    success = true;
+            if (!response.ok) {
+                if (contentType.includes("application/json")) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail || errData.error || `Server returned error (${response.status})`);
+                } else if (response.status === 404) {
+                    throw new Error("Backend API is not online or endpoint not found (HTTP 404).");
+                } else if (response.status === 502 || response.status === 503) {
+                    throw new Error("Backend API server is currently waking up. Please retry in a few seconds.");
                 } else {
-                    lastErr = new Error(data.error || data.detail || "Extraction failed.");
-                    if (attempts < maxAttempts) {
-                        await new Promise(r => setTimeout(r, 1200));
-                    }
+                    throw new Error(`Server returned HTTP ${response.status}. The backend API may be offline.`);
                 }
-            } catch (err) {
+            }
+
+            if (!contentType.includes("application/json")) {
+                throw new Error("Backend returned an unexpected response format.");
+            }
+
+            data = await response.json();
+
+            if (data.success) {
+                success = true;
+            } else {
+                lastErr = new Error(data.error || data.detail || "Extraction failed.");
+            }
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err.name === 'AbortError') {
+                lastErr = new Error("Request timed out. The server was busy waking up; please click Extract again.");
+            } else {
                 lastErr = err;
-                if (attempts < maxAttempts) {
-                    await new Promise(r => setTimeout(r, 1200));
-                }
             }
         }
 
