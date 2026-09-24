@@ -336,6 +336,73 @@ def get_visitor_cookie_file() -> Optional[str]:
         print(f"[DYNAMIC COOKIE WARNING]: {e}")
     return None
 
+def get_clean_youtube_cookies() -> tuple[Optional[str], Optional[str]]:
+    """
+    Returns (netscape_cookie_file_path, cookie_header_string).
+    Cleans up newlines and normalizes whitespace into tabs for valid Netscape format.
+    """
+    cookie_file = os.path.join(os.path.dirname(__file__), "..", "cookies.txt")
+    if os.path.exists(cookie_file):
+        try:
+            with open(cookie_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            pairs = []
+            for line in content.split("\n"):
+                line = line.strip()
+                if line and not line.startswith("#") and "\t" in line:
+                    parts = line.split("\t")
+                    if len(parts) >= 7:
+                        pairs.append(f"{parts[5]}={parts[6]}")
+            return cookie_file, ("; ".join(pairs) if pairs else None)
+        except Exception:
+            pass
+
+    raw_cookies = os.environ.get("YOUTUBE_COOKIES", "").strip()
+    if not raw_cookies:
+        return None, None
+
+    raw_cookies = raw_cookies.replace("\\n", "\n").replace("\\r", "").replace("\r\n", "\n")
+    clean_lines = []
+    pairs = []
+    has_header = False
+
+    for line in raw_cookies.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("#"):
+            if "Netscape" in line:
+                has_header = True
+            clean_lines.append(line)
+            continue
+        parts = re.split(r'\t+|\s{2,}|\s+', line)
+        if len(parts) >= 7:
+            domain, flag, path, secure, expiration, name = parts[:6]
+            value = " ".join(parts[6:])
+            clean_lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiration}\t{name}\t{value}")
+            pairs.append(f"{name}={value}")
+        elif len(parts) == 2 and "=" not in parts[0]:
+            pairs.append(f"{parts[0]}={parts[1]}")
+        elif "=" in line:
+            for sub in line.split(";"):
+                sub = sub.strip()
+                if "=" in sub:
+                    pairs.append(sub)
+
+    if not has_header:
+        clean_lines.insert(0, "# Netscape HTTP Cookie File")
+
+    import tempfile
+    temp_cookie_path = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
+    try:
+        with open(temp_cookie_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(clean_lines) + "\n")
+        cookie_header = "; ".join(pairs) if pairs else None
+        return temp_cookie_path, cookie_header
+    except Exception as ce:
+        print(f"[COOKIE WRITE ERROR]: {ce}")
+    return None, None
+
 # ─────────────────────────────────────────────
 # Build yt-dlp options per platform
 # ─────────────────────────────────────────────
@@ -351,22 +418,10 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         'ignoreerrors': False,
     }
 
-    # Support cookies file if present or via environment variable
-    cookie_file = os.path.join(os.path.dirname(__file__), "..", "cookies.txt")
-    if os.path.exists(cookie_file):
-        base['cookiefile'] = cookie_file
-    elif os.environ.get("YOUTUBE_COOKIES"):
-        import tempfile
-        raw_cookies = os.environ["YOUTUBE_COOKIES"].strip()
-        raw_cookies = raw_cookies.replace("\\n", "\n").replace("\\r", "").replace("\r\n", "\n")
-        temp_cookie_path = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
-        try:
-            with open(temp_cookie_path, "w", encoding="utf-8") as f:
-                f.write(raw_cookies)
-            base['cookiefile'] = temp_cookie_path
-            print(f"[COOKIES] Loaded YOUTUBE_COOKIES ({len(raw_cookies)} chars) into {temp_cookie_path}")
-        except Exception as ce:
-            print(f"[COOKIE WRITE ERROR]: {ce}")
+    # Support cleaned cookies if present
+    cookie_path, _ = get_clean_youtube_cookies()
+    if cookie_path:
+        base['cookiefile'] = cookie_path
     elif platform == "YouTube":
         dyn_cookie = get_visitor_cookie_file()
         if dyn_cookie:
@@ -469,6 +524,23 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
 
         # Priority clients that work reliably without bot challenges (VISION_OS is fastest at ~1s)
         client_candidates = ['VISION_OS', 'ANDROID_VR', 'MWEB', 'WEB', 'IOS']
+
+        # Inject user session cookies if present to bypass datacenter 403 Forbidden
+        _, cookie_header = get_clean_youtube_cookies()
+        if cookie_header:
+            try:
+                import pytubefix.request
+                orig_exec = getattr(pytubefix.request, '_orig_execute_request', pytubefix.request._execute_request)
+                pytubefix.request._orig_execute_request = orig_exec
+                def patched_exec(req_url, method=None, headers=None, data=None, timeout=12):
+                    if headers is None:
+                        headers = {}
+                    if 'Cookie' not in headers:
+                        headers['Cookie'] = cookie_header
+                    return orig_exec(req_url, method=method, headers=headers, data=data, timeout=timeout)
+                pytubefix.request._execute_request = patched_exec
+            except Exception:
+                pass
 
         for client_type in client_candidates:
             try:

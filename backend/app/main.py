@@ -43,7 +43,7 @@ def read_root():
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.1.3",
+        "version": "1.1.4",
         "youtube_cookies_present": bool(raw_cookies),
         "youtube_cookies_length": len(raw_cookies),
         "firebase": firebase_info["mode"],
@@ -86,8 +86,30 @@ def diagnose_youtube(url: Optional[str] = "https://www.youtube.com/watch?v=bFBvA
         diag["pytubefix_import_error"] = str(ie)
         return diag
 
+    from app.extractor import get_clean_youtube_cookies
+    cookie_path, cookie_header = get_clean_youtube_cookies()
+    diag["cookies"] = {
+        "cookie_file_present": bool(cookie_path and os.path.exists(cookie_path)),
+        "cookie_header_present": bool(cookie_header),
+        "cookie_header_length": len(cookie_header) if cookie_header else 0,
+        "sample_pairs": cookie_header[:60] if cookie_header else None
+    }
+
+    # Test with cookies injected
+    if cookie_header:
+        import pytubefix.request
+        orig_exec = getattr(pytubefix.request, '_orig_execute_request', pytubefix.request._execute_request)
+        pytubefix.request._orig_execute_request = orig_exec
+        def patched_exec(req_url, method=None, headers=None, data=None, timeout=12):
+            if headers is None:
+                headers = {}
+            if 'Cookie' not in headers:
+                headers['Cookie'] = cookie_header
+            return orig_exec(req_url, method=method, headers=headers, data=data, timeout=timeout)
+        pytubefix.request._execute_request = patched_exec
+
     from pytubefix import YouTube
-    for c in ['VISION_OS', 'ANDROID_VR', 'MWEB', 'WEB']:
+    for c in ['VISION_OS', 'ANDROID_VR', 'MWEB']:
         try:
             yt = YouTube(url, client=c)
             streams = list(yt.streams)
