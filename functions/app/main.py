@@ -43,7 +43,7 @@ def read_root():
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "youtube_cookies_present": bool(raw_cookies),
         "youtube_cookies_length": len(raw_cookies),
         "firebase": firebase_info["mode"],

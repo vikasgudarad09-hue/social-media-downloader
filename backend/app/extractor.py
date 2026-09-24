@@ -467,8 +467,8 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
         video_id = extract_youtube_id(url)
         target_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else url
 
-        # Priority clients that work reliably without bot challenges
-        client_candidates = ['MWEB', 'VISION_OS', 'ANDROID_VR', 'WEB', 'IOS']
+        # Priority clients that work reliably without bot challenges (VISION_OS is fastest at ~1s)
+        client_candidates = ['VISION_OS', 'ANDROID_VR', 'MWEB', 'WEB', 'IOS']
 
         for client_type in client_candidates:
             try:
