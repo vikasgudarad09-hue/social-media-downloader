@@ -43,7 +43,7 @@ def read_root():
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.1.2",
+        "version": "1.1.3",
         "youtube_cookies_present": bool(raw_cookies),
         "youtube_cookies_length": len(raw_cookies),
         "firebase": firebase_info["mode"],
@@ -53,7 +53,8 @@ def read_root():
             "firebase_status": "GET /api/firebase/status",
             "user_history": "GET /api/user/history",
             "record_history": "POST /api/user/history/record",
-            "health": "GET /health"
+            "health": "GET /health",
+            "diagnose_youtube": "GET /api/diagnose/youtube"
         }
     }
 
@@ -74,6 +75,34 @@ def health_check():
 def firebase_status():
     """Returns the operational status of Firebase services on the backend."""
     return get_firebase_status()
+
+@app.get("/api/diagnose/youtube")
+def diagnose_youtube(url: Optional[str] = "https://www.youtube.com/watch?v=bFBvAUEJrS8"):
+    diag = {}
+    try:
+        import pytubefix
+        diag["pytubefix_version"] = getattr(pytubefix, "__version__", "unknown")
+    except Exception as ie:
+        diag["pytubefix_import_error"] = str(ie)
+        return diag
+
+    from pytubefix import YouTube
+    for c in ['VISION_OS', 'ANDROID_VR', 'MWEB', 'WEB']:
+        try:
+            yt = YouTube(url, client=c)
+            streams = list(yt.streams)
+            diag[f"client_{c}"] = {
+                "success": True,
+                "title": yt.title,
+                "streams_count": len(streams),
+                "sample_stream": str(streams[0]) if streams else None
+            }
+        except Exception as e:
+            diag[f"client_{c}"] = {
+                "success": False,
+                "error": str(e)
+            }
+    return diag
 
 @app.post("/api/extract", response_model=ExtractResponse)
 def extract_media(request: ExtractRequest, authorization: Optional[str] = Header(None)):
