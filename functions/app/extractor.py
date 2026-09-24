@@ -376,6 +376,8 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         base.update({
             'format': 'all',
             'geo_bypass': True,
+            'js_runtimes': {'node': {}},
+            'remote_components': ['ejs:github'],
         })
         if not base.get('cookiefile'):
             base['extractor_args'] = {
