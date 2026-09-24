@@ -39,10 +39,13 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     firebase_info = get_firebase_status()
+    raw_cookies = os.environ.get("YOUTUBE_COOKIES", "")
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.0.7",
+        "version": "1.0.8",
+        "youtube_cookies_present": bool(raw_cookies),
+        "youtube_cookies_length": len(raw_cookies),
         "firebase": firebase_info["mode"],
         "endpoints": {
             "extract": "POST /api/extract",

@@ -357,13 +357,16 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         base['cookiefile'] = cookie_file
     elif os.environ.get("YOUTUBE_COOKIES"):
         import tempfile
+        raw_cookies = os.environ["YOUTUBE_COOKIES"].strip()
+        raw_cookies = raw_cookies.replace("\\n", "\n").replace("\\r", "").replace("\r\n", "\n")
         temp_cookie_path = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
         try:
             with open(temp_cookie_path, "w", encoding="utf-8") as f:
-                f.write(os.environ["YOUTUBE_COOKIES"])
+                f.write(raw_cookies)
             base['cookiefile'] = temp_cookie_path
-        except Exception:
-            pass
+            print(f"[COOKIES] Loaded YOUTUBE_COOKIES ({len(raw_cookies)} chars) into {temp_cookie_path}")
+        except Exception as ce:
+            print(f"[COOKIE WRITE ERROR]: {ce}")
     elif platform == "YouTube":
         dyn_cookie = get_visitor_cookie_file()
         if dyn_cookie:
