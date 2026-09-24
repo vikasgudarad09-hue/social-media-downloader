@@ -43,7 +43,7 @@ def read_root():
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "youtube_cookies_present": bool(raw_cookies),
         "youtube_cookies_length": len(raw_cookies),
         "firebase": firebase_info["mode"],
@@ -143,10 +143,11 @@ def record_user_download(record: UserDownloadRecordRequest, authorization: Optio
     }
 
 @app.get("/api/proxy-download")
-async def proxy_download(url: str, filename: Optional[str] = "download.mp4"):
+async def proxy_download(request: Request, url: str, filename: Optional[str] = "download.mp4"):
     """
     Proxies media stream with Content-Disposition: attachment header to force
     direct file download in browser instead of playing in a tab.
+    Supports Range requests for pause, resume, and streaming.
     """
     if not (url.startswith("http://") or url.startswith("https://")):
         raise HTTPException(status_code=400, detail="Invalid URL scheme")
@@ -163,6 +164,11 @@ async def proxy_download(url: str, filename: Optional[str] = "download.mp4"):
             req_headers["Referer"] = "https://www.tiktok.com/"
         elif "instagram" in url.lower():
             req_headers["Referer"] = "https://www.instagram.com/"
+
+        # Forward range header if present for fast chunk streaming
+        range_header = request.headers.get("range")
+        if range_header:
+            req_headers["Range"] = range_header
 
         req = client.build_request("GET", url, headers=req_headers)
         response = await client.send(req, stream=True)
@@ -186,11 +192,15 @@ async def proxy_download(url: str, filename: Optional[str] = "download.mp4"):
         headers = {
             "Content-Disposition": f'attachment; filename="{safe_filename}"',
             "Access-Control-Expose-Headers": "Content-Disposition",
+            "Accept-Ranges": "bytes",
         }
         if "content-length" in response.headers:
             headers["Content-Length"] = response.headers["content-length"]
+        if "content-range" in response.headers:
+            headers["Content-Range"] = response.headers["content-range"]
 
-        return StreamingResponse(media_stream(), media_type=content_type, headers=headers)
+        status = 206 if response.status_code == 206 else 200
+        return StreamingResponse(media_stream(), status_code=status, media_type=content_type, headers=headers)
 
     except Exception:
         await client.aclose()
