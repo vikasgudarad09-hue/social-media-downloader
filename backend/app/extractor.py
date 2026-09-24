@@ -374,7 +374,7 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
             'format': 'all',
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'web'],
+                    'player_client': ['android'],
                 }
             },
             'geo_bypass': True,
@@ -435,8 +435,11 @@ def build_formats(info: Dict):
     progressive = [f for f in extracted_formats if f.get('vcodec') != 'none' and f.get('acodec') != 'none']
     if progressive:
         video_url = progressive[-1]['url']
-    elif not video_url:
-        video_url = info.get('url') or (extracted_formats[-1]["url"] if extracted_formats else None)
+    elif extracted_formats:
+        video_fmts = [f for f in extracted_formats if f.get('vcodec') != 'none']
+        video_url = video_fmts[-1]['url'] if video_fmts else extracted_formats[-1]['url']
+    else:
+        video_url = None
 
     if not audio_url:
         audio_only = [f for f in extracted_formats if f.get('vcodec') == 'none' and f.get('acodec') != 'none']
@@ -715,6 +718,8 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
             except (ValueError, TypeError):
                 duration = 0
             extracted_formats, video_url, audio_url = build_formats(info)
+            if not video_url or not extracted_formats:
+                raise ValueError("No playable video stream found")
 
             return {
                 "success": True,
