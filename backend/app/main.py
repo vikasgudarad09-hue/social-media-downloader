@@ -43,7 +43,7 @@ def read_root():
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.1.4",
+        "version": "1.1.5",
         "youtube_cookies_present": bool(raw_cookies),
         "youtube_cookies_length": len(raw_cookies),
         "firebase": firebase_info["mode"],
@@ -109,21 +109,43 @@ def diagnose_youtube(url: Optional[str] = "https://www.youtube.com/watch?v=bFBvA
         pytubefix.request._execute_request = patched_exec
 
     from pytubefix import YouTube
-    for c in ['VISION_OS', 'ANDROID_VR', 'MWEB']:
+    for c in ['WEB', 'VISION_OS']:
         try:
             yt = YouTube(url, client=c)
             streams = list(yt.streams)
-            diag[f"client_{c}"] = {
+            diag[f"pytube_{c}"] = {
                 "success": True,
                 "title": yt.title,
                 "streams_count": len(streams),
                 "sample_stream": str(streams[0]) if streams else None
             }
         except Exception as e:
-            diag[f"client_{c}"] = {
+            diag[f"pytube_{c}"] = {
                 "success": False,
                 "error": str(e)
             }
+
+    import yt_dlp
+    from app.extractor import build_ydl_opts, build_formats
+    try:
+        opts = build_ydl_opts("YouTube")
+        diag["ydl_cookiefile"] = opts.get("cookiefile")
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            fmts, v_url, a_url = build_formats(info)
+            diag["ytdlp"] = {
+                "success": True,
+                "title": info.get("title"),
+                "formats_count": len(fmts),
+                "video_url": bool(v_url),
+                "audio_url": bool(a_url)
+            }
+    except Exception as ye:
+        diag["ytdlp"] = {
+            "success": False,
+            "error": str(ye)
+        }
+
     return diag
 
 @app.post("/api/extract", response_model=ExtractResponse)
