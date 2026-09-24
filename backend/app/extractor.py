@@ -371,9 +371,10 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
 
     if platform == "YouTube":
         base.update({
+            'format': 'all',
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'android_vr'],
+                    'player_client': ['android', 'web'],
                 }
             },
             'geo_bypass': True,
