@@ -433,13 +433,12 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
             'geo_bypass': True,
             'js_runtimes': {'node': {}},
             'remote_components': ['ejs:github'],
-        })
-        if not base.get('cookiefile'):
-            base['extractor_args'] = {
+            'extractor_args': {
                 'youtube': {
-                    'player_client': ['mweb', 'web', 'ios'],
+                    'player_client': ['web_embedded', 'mweb'],
                 }
             }
+        })
     elif platform == "Instagram":
         base.update({
             'format': 'best[ext=mp4]/best',
