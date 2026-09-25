@@ -469,6 +469,11 @@ def build_formats(info: Dict):
         if ext.lower() in ['mhtml', 'sb'] or format_id.startswith('sb') or 'storyboard' in format_id.lower():
             continue
 
+        # NEVER include playlist / manifest URLs as direct downloads (prevents 23KB text file bug)
+        proto = str(fmt.get('protocol', '')).lower()
+        if 'm3u8' in proto or 'm3u8' in fmt_url.lower() or 'manifest' in fmt_url.lower() or 'dash' in proto:
+            continue
+
         vcodec = fmt.get('vcodec') or 'none'
         acodec = fmt.get('acodec') or 'none'
         h = fmt.get('height') or 0
@@ -997,6 +1002,34 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
                 duration = int(float(info.get('duration') or 0))
             except (ValueError, TypeError):
                 duration = 0
+            # If YouTube video lacks progressive streams (video+audio combined),
+            # query Android client format 18 (fast ~1s) to guarantee synchronized audio/video playback
+            if platform == "YouTube":
+                has_prog = any(
+                    f.get('vcodec') != 'none' and f.get('acodec') != 'none' and
+                    'm3u8' not in f.get('url', '') and 'manifest' not in f.get('url', '') and
+                    'm3u8' not in str(f.get('protocol', '')).lower()
+                    for f in (info.get('formats') or [])
+                )
+                if not has_prog:
+                    try:
+                        android_opts = build_ydl_opts("YouTube")
+                        android_opts['extractor_args'] = {'youtube': {'player_client': ['android']}}
+                        with yt_dlp.YoutubeDL(android_opts) as a_ydl:
+                            a_info = a_ydl.extract_info(url, download=False)
+                            if a_info and a_info.get('formats'):
+                                a_progs = [
+                                    f for f in a_info['formats']
+                                    if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and
+                                    'm3u8' not in f.get('url', '') and 'manifest' not in f.get('url', '')
+                                ]
+                                if a_progs:
+                                    if 'formats' not in info or not info['formats']:
+                                        info['formats'] = []
+                                    info['formats'].extend(a_progs)
+                    except Exception as ae:
+                        print(f"[ANDROID PROG NOTICE]: {ae}")
+
             extracted_formats, video_url, audio_url = build_formats(info)
             if not video_url or not extracted_formats:
                 raise ValueError("No playable video stream found")

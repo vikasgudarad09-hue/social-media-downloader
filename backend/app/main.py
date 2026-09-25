@@ -232,6 +232,11 @@ async def proxy_download(request: Request, url: str, filename: Optional[str] = "
             return RedirectResponse(url=url, status_code=302)
 
         content_type = response.headers.get("content-type", "application/octet-stream")
+        if "m3u8" in url.lower() or "mpegurl" in content_type.lower():
+            await response.aclose()
+            await client.aclose()
+            raise HTTPException(status_code=400, detail="Cannot download an m3u8 playlist manifest directly as a video file. Please use a direct progressive video stream.")
+
 
         async def media_stream():
             try:
