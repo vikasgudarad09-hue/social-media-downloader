@@ -418,24 +418,13 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         'ignoreerrors': False,
     }
 
-    # Support cleaned cookies if present
-    cookie_path, _ = get_clean_youtube_cookies()
-    if cookie_path:
-        base['cookiefile'] = cookie_path
-    elif platform == "YouTube":
-        dyn_cookie = get_visitor_cookie_file()
-        if dyn_cookie:
-            base['cookiefile'] = dyn_cookie
-
     if platform == "YouTube":
         base.update({
             'format': 'all',
             'geo_bypass': True,
-            'js_runtimes': {'node': {}},
-            'remote_components': ['ejs:github'],
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['web_embedded', 'mweb'],
+                    'player_client': ['android'],
                 }
             }
         })
@@ -521,8 +510,8 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
         video_id = extract_youtube_id(url)
         target_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else url
 
-        # Priority clients that work reliably without bot challenges (VISION_OS is fastest at ~1s)
-        client_candidates = ['VISION_OS', 'ANDROID_VR', 'MWEB', 'WEB', 'IOS']
+        # Priority clients for fallback
+        client_candidates = ['ANDROID_VR', 'WEB']
 
         # Inject user session cookies if present to bypass datacenter 403 Forbidden
         _, cookie_header = get_clean_youtube_cookies()
@@ -531,7 +520,7 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
                 import pytubefix.request
                 orig_exec = getattr(pytubefix.request, '_orig_execute_request', pytubefix.request._execute_request)
                 pytubefix.request._orig_execute_request = orig_exec
-                def patched_exec(req_url, method=None, headers=None, data=None, timeout=12):
+                def patched_exec(req_url, method=None, headers=None, data=None, timeout=6):
                     if headers is None:
                         headers = {}
                     if 'Cookie' not in headers:
@@ -861,16 +850,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
 def _do_extract_media_info(url: str) -> Dict[str, Any]:
     platform = detect_platform(url)
 
-    # ── Fast Engine 1: YouTube pytubefix (0.8s, bypasses bot checks) ──
-    if platform == "YouTube":
-        try:
-            pytube_res = try_pytubefix(url)
-            if pytube_res and pytube_res.get("success"):
-                return pytube_res
-        except Exception as pe:
-            print(f"[PYTUBEFIX NOTICE]: {pe}")
-
-    # ── Fast Engine 2: TikTok TikWM (0.3s, direct clean MP4) ──
+    # ── Fast Engine 1: TikTok TikWM (0.3s, direct clean MP4) ──
     if platform == "TikTok":
         try:
             tikwm_res = try_tikwm(url)
