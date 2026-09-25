@@ -43,7 +43,7 @@ def read_root():
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.1.9",
+        "version": "1.2.0",
         "youtube_cookies_present": bool(raw_cookies),
         "youtube_cookies_length": len(raw_cookies),
         "firebase": firebase_info["mode"],
@@ -92,7 +92,7 @@ def diagnose_youtube(url: Optional[str] = "https://www.youtube.com/watch?v=bFBvA
     }
 
     import yt_dlp
-    clients_to_test = ['android', 'ios', 'tv_embedded', 'mweb', 'web']
+    clients_to_test = ['android', 'ios', 'web']
     diag["clients_results"] = {}
     for c in clients_to_test:
         ct0 = time.time()
@@ -101,6 +101,7 @@ def diagnose_youtube(url: Optional[str] = "https://www.youtube.com/watch?v=bFBvA
                 'quiet': True,
                 'no_warnings': True,
                 'skip_download': True,
+                'format': 'all',
                 'socket_timeout': 6,
                 'retries': 0,
                 'geo_bypass': True,

@@ -431,7 +431,7 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
             'geo_bypass': True,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['web', 'mweb', 'android'],
+                    'player_client': ['android', 'ios', 'web'],
                 }
             }
         })
