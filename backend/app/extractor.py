@@ -429,15 +429,17 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         base.update({
             'format': 'all',
             'geo_bypass': True,
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['android', 'ios', 'web'],
-                }
-            }
         })
     elif platform == "Instagram":
+        cookie_path, _ = get_clean_youtube_cookies()
+        if cookie_path:
+            base['cookiefile'] = cookie_path
         base.update({
             'format': 'best[ext=mp4]/best',
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
+            }
         })
     elif platform == "TikTok":
         base.update({
@@ -454,9 +456,9 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
 # ─────────────────────────────────────────────
 def build_formats(info: Dict):
     raw_formats = info.get('formats') or []
-    extracted_formats = []
-    video_url = None
-    audio_url = None
+    prog_formats = []
+    video_only = []
+    audio_only = []
 
     for fmt in raw_formats:
         fmt_url = fmt.get('url')
@@ -466,45 +468,104 @@ def build_formats(info: Dict):
         format_id = str(fmt.get('format_id', ''))
         if ext.lower() in ['mhtml', 'sb'] or format_id.startswith('sb') or 'storyboard' in format_id.lower():
             continue
-        vcodec = fmt.get('vcodec', 'none')
-        acodec = fmt.get('acodec', 'none')
-        res = fmt.get('resolution')
-        if not res or res == 'none':
-            w, h = fmt.get('width'), fmt.get('height')
-            res = f"{w}x{h}" if (w and h) else fmt.get('format_note', 'Standard')
+
+        vcodec = fmt.get('vcodec') or 'none'
+        acodec = fmt.get('acodec') or 'none'
+        h = fmt.get('height') or 0
+        w = fmt.get('width') or 0
+        abr = fmt.get('abr') or 0
         filesize = format_filesize(fmt.get('filesize') or fmt.get('filesize_approx'))
-        if vcodec != 'none' and not video_url:
-            video_url = fmt_url
-        if vcodec == 'none' and acodec != 'none' and not audio_url:
-            audio_url = fmt_url
-        extracted_formats.append({
+
+        has_v = (vcodec != 'none')
+        has_a = (acodec != 'none')
+
+        res_str = fmt.get('resolution') or (f"{w}x{h}" if (w and h) else fmt.get('format_note') or 'Standard')
+
+        item = {
             "format_id": format_id,
             "ext": ext,
-            "resolution": res,
+            "resolution": res_str,
+            "height": h,
+            "abr": abr,
             "filesize_approx": filesize,
             "url": fmt_url,
             "vcodec": vcodec,
             "acodec": acodec,
-        })
+        }
 
-    # Prioritize progressive formats (both audio and video included)
-    progressive = [f for f in extracted_formats if f.get('vcodec') != 'none' and f.get('acodec') != 'none']
-    if progressive:
-        video_url = progressive[-1]['url']
-    elif extracted_formats:
-        video_fmts = [f for f in extracted_formats if f.get('vcodec') != 'none']
-        video_url = video_fmts[-1]['url'] if video_fmts else extracted_formats[-1]['url']
+        if has_v and has_a:
+            prog_formats.append(item)
+        elif has_v and not has_a:
+            video_only.append(item)
+        elif not has_v and has_a:
+            audio_only.append(item)
+
+    # Sort formats from highest to lowest quality
+    prog_formats.sort(key=lambda x: x['height'], reverse=True)
+    video_only.sort(key=lambda x: x['height'], reverse=True)
+    audio_only.sort(key=lambda x: x['abr'], reverse=True)
+
+    # Pick defaults
+    if prog_formats:
+        video_url = prog_formats[0]['url']
+    elif video_only:
+        video_url = video_only[0]['url']
+    elif raw_formats:
+        video_url = raw_formats[0].get('url')
     else:
         video_url = None
 
-    if not audio_url:
-        audio_only = [f for f in extracted_formats if f.get('vcodec') == 'none' and f.get('acodec') != 'none']
-        if audio_only:
-            audio_url = audio_only[-1]['url']
-        elif progressive:
-            audio_url = progressive[-1]['url']
+    if audio_only:
+        # Prefer m4a if available for best browser playback
+        m4a_audios = [a for a in audio_only if a['ext'] == 'm4a']
+        audio_url = m4a_audios[0]['url'] if m4a_audios else audio_only[0]['url']
+    elif prog_formats:
+        audio_url = prog_formats[0]['url']
+    else:
+        audio_url = video_url
 
-    return extracted_formats, video_url, audio_url
+    # Build final curated formats list for UI
+    curated = []
+    seen = set()
+
+    for p in prog_formats:
+        label = f"{p['height']}p (Video + Audio)" if p['height'] else p['resolution']
+        key = (p['ext'], label)
+        if key not in seen:
+            seen.add(key)
+            curated.append({**p, "resolution": label})
+
+    for v in video_only:
+        if v['height'] >= 720:  # Only add HD streams to avoid clutter
+            label = f"{v['height']}p (HD Video)"
+            key = (v['ext'], label)
+            if key not in seen and len(curated) < 10:
+                seen.add(key)
+                curated.append({**v, "resolution": label})
+
+    for a in audio_only[:3]:
+        label = f"Audio ({a['ext'].upper()} {int(a['abr'])}k)" if a['abr'] else f"Audio ({a['ext'].upper()})"
+        key = (a['ext'], label)
+        if key not in seen and len(curated) < 14:
+            seen.add(key)
+            curated.append({**a, "resolution": label})
+
+    # If no curated formats were formed, fallback to raw
+    if not curated and raw_formats:
+        for fmt in raw_formats[:8]:
+            u = fmt.get('url')
+            if u:
+                curated.append({
+                    "format_id": str(fmt.get('format_id', 'standard')),
+                    "ext": fmt.get('ext', 'mp4'),
+                    "resolution": fmt.get('resolution') or 'Standard',
+                    "filesize_approx": format_filesize(fmt.get('filesize') or fmt.get('filesize_approx')),
+                    "url": u,
+                    "vcodec": fmt.get('vcodec', 'none'),
+                    "acodec": fmt.get('acodec', 'none'),
+                })
+
+    return curated, video_url, audio_url
 
 # ─────────────────────────────────────────────
 # pytubefix YouTube Engine (fast 0.8s, reliable)
@@ -517,8 +578,8 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
         video_id = extract_youtube_id(url)
         target_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else url
 
-        # Priority clients for fallback
-        client_candidates = ['ANDROID_VR', 'WEB']
+        # Priority clients for fallback - WEB first for fastest response
+        client_candidates = ['WEB', 'ANDROID_VR']
 
         # Inject user session cookies if present to bypass datacenter 403 Forbidden
         _, cookie_header = get_clean_youtube_cookies()
@@ -547,134 +608,114 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
 
                 length = int(getattr(yt, 'length', 0) or 0)
 
-                # Get all streams with a valid URL
-                all_streams = []
-                try:
-                    all_streams = [s for s in list(yt.streams) if getattr(s, 'url', None)]
-                except Exception:
-                    pass
+                # Filter candidate streams without deciphering URLs first
+                prog_streams = list(yt.streams.filter(progressive=True))
+                prog_streams.sort(key=lambda s: int(''.join(filter(str.isdigit, str(getattr(s, 'resolution', '') or '0'))) or 0), reverse=True)
 
-                if not all_streams:
+                audio_streams = list(yt.streams.filter(only_audio=True))
+                audio_streams.sort(key=lambda s: int(''.join(filter(str.isdigit, str(getattr(s, 'abr', '') or '0'))) or 0), reverse=True)
+
+                video_streams = list(yt.streams.filter(adaptive=True, type="video"))
+                video_streams.sort(key=lambda s: int(''.join(filter(str.isdigit, str(getattr(s, 'resolution', '') or '0'))) or 0), reverse=True)
+
+                if not prog_streams and not video_streams and not audio_streams:
                     continue
 
-                def _res_num(s):
-                    res_str = str(getattr(s, 'resolution', '') or getattr(s, 'quality_label', '') or '0p')
-                    digits = ''.join([c for c in res_str if c.isdigit()])
-                    return int(digits) if digits else 0
-
-                def _abr_num(s):
-                    abr_str = str(getattr(s, 'abr', '') or '0kbps')
-                    digits = ''.join([c for c in abr_str if c.isdigit()])
-                    return int(digits) if digits else 0
-
-                # 1. Progressive streams (contain BOTH video and audio in single MP4)
-                prog_streams = [s for s in all_streams if getattr(s, 'is_progressive', False)]
-                prog_streams.sort(key=_res_num, reverse=True)
-
-                # 2. MP4 video streams
-                mp4_video_streams = [s for s in all_streams if getattr(s, 'resolution', None) and 'mp4' in str(getattr(s, 'mime_type', ''))]
-                mp4_video_streams.sort(key=_res_num, reverse=True)
-
-                # 3. All video streams
-                any_video_streams = [s for s in all_streams if getattr(s, 'resolution', None)]
-                any_video_streams.sort(key=_res_num, reverse=True)
-
-                # 4. Audio streams
-                audio_streams = [s for s in all_streams if 'audio' in str(getattr(s, 'mime_type', ''))]
-                audio_streams.sort(key=_abr_num, reverse=True)
-                mp4_audio_streams = [s for s in audio_streams if 'mp4' in str(getattr(s, 'mime_type', ''))]
-
-                # Determine default video_url:
-                # Prioritize progressive (has sound), then top MP4 video stream
-                if prog_streams:
-                    video_url = prog_streams[0].url
-                elif mp4_video_streams:
-                    video_url = mp4_video_streams[0].url
-                elif any_video_streams:
-                    video_url = any_video_streams[0].url
-                else:
-                    video_url = all_streams[0].url
-
-                # Determine default audio_url:
-                if mp4_audio_streams:
-                    audio_url = mp4_audio_streams[0].url
-                elif audio_streams:
-                    audio_url = audio_streams[0].url
-                elif prog_streams:
-                    audio_url = prog_streams[0].url
-                else:
-                    audio_url = video_url
-
-                # Build rich format list
                 formats = []
                 seen_itags = set()
+                video_url = None
+                audio_url = None
 
-                # Add progressive streams first
-                for s in prog_streams:
-                    itag = str(getattr(s, 'itag', ''))
-                    if itag in seen_itags:
-                        continue
-                    seen_itags.add(itag)
-                    res_val = str(getattr(s, 'resolution', '') or '360p')
-                    formats.append({
-                        "format_id": itag,
-                        "ext": "mp4",
-                        "resolution": f"{res_val} (Video + Audio)",
-                        "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
-                        "url": s.url,
-                        "vcodec": "h264",
-                        "acodec": "aac"
-                    })
+                # 1. Progressive streams (Video + Audio) - decipher top 2
+                for s in prog_streams[:2]:
+                    try:
+                        u = s.url
+                        if u:
+                            itag = str(getattr(s, 'itag', ''))
+                            seen_itags.add(itag)
+                            res_val = str(getattr(s, 'resolution', '') or '360p')
+                            if not video_url:
+                                video_url = u
+                            formats.append({
+                                "format_id": itag,
+                                "ext": "mp4",
+                                "resolution": f"{res_val} (Video + Audio)",
+                                "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
+                                "url": u,
+                                "vcodec": "h264",
+                                "acodec": "aac"
+                            })
+                    except Exception:
+                        pass
 
-                # Add high-resolution video streams
-                for s in mp4_video_streams:
-                    itag = str(getattr(s, 'itag', ''))
-                    if itag in seen_itags:
-                        continue
-                    seen_itags.add(itag)
-                    res_val = str(getattr(s, 'resolution', '') or 'HD')
-                    formats.append({
-                        "format_id": itag,
-                        "ext": "mp4",
-                        "resolution": f"{res_val} (HD Video)",
-                        "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
-                        "url": s.url,
-                        "vcodec": "h264",
-                        "acodec": "none"
-                    })
+                # 2. Audio streams - decipher top 2
+                for s in audio_streams[:2]:
+                    try:
+                        u = s.url
+                        if u:
+                            itag = str(getattr(s, 'itag', ''))
+                            if itag in seen_itags:
+                                continue
+                            seen_itags.add(itag)
+                            if not audio_url:
+                                audio_url = u
+                            abr_val = str(getattr(s, 'abr', '') or 'Audio')
+                            ext = "m4a" if "mp4" in str(getattr(s, 'mime_type', '')) else "webm"
+                            formats.append({
+                                "format_id": itag,
+                                "ext": ext,
+                                "resolution": f"Audio ({abr_val})",
+                                "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
+                                "url": u,
+                                "vcodec": "none",
+                                "acodec": "aac" if ext == "m4a" else "opus"
+                            })
+                    except Exception:
+                        pass
 
-                # Add best audio streams
-                for s in audio_streams[:3]:
-                    itag = str(getattr(s, 'itag', ''))
-                    if itag in seen_itags:
-                        continue
-                    seen_itags.add(itag)
-                    abr_val = str(getattr(s, 'abr', '') or 'Audio')
-                    ext = "m4a" if "mp4" in str(getattr(s, 'mime_type', '')) else "webm"
-                    formats.append({
-                        "format_id": itag,
-                        "ext": ext,
-                        "resolution": f"Audio ({abr_val})",
-                        "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
-                        "url": s.url,
-                        "vcodec": "none",
-                        "acodec": "aac" if ext == "m4a" else "opus"
-                    })
+                # 3. High-definition video streams - decipher top 2
+                for s in video_streams[:2]:
+                    try:
+                        res_num = int(''.join(filter(str.isdigit, str(getattr(s, 'resolution', '') or '0'))) or 0)
+                        if res_num >= 720:
+                            u = s.url
+                            if u:
+                                itag = str(getattr(s, 'itag', ''))
+                                if itag in seen_itags:
+                                    continue
+                                seen_itags.add(itag)
+                                formats.append({
+                                    "format_id": itag,
+                                    "ext": "mp4" if "mp4" in str(getattr(s, 'mime_type', '')) else "webm",
+                                    "resolution": f"{res_num}p (HD Video)",
+                                    "filesize_approx": format_filesize(getattr(s, 'filesize', None)),
+                                    "url": u,
+                                    "vcodec": "h264",
+                                    "acodec": "none"
+                                })
+                    except Exception:
+                        pass
 
-                return {
-                    "success": True,
-                    "url": url,
-                    "platform": "YouTube",
-                    "title": title,
-                    "thumbnail": thumbnail,
-                    "duration": length,
-                    "duration_formatted": format_duration(length),
-                    "video_url": video_url,
-                    "audio_url": audio_url,
-                    "formats": formats[:12],
-                    "requires_ad_unlock": False,
-                    "error": None
-                }
+                if not video_url and formats:
+                    video_url = formats[0]['url']
+                if not audio_url:
+                    audio_url = video_url
+
+                if video_url:
+                    return {
+                        "success": True,
+                        "url": url,
+                        "platform": "YouTube",
+                        "title": title,
+                        "thumbnail": thumbnail,
+                        "duration": length,
+                        "duration_formatted": format_duration(length),
+                        "video_url": video_url,
+                        "audio_url": audio_url,
+                        "formats": formats,
+                        "requires_ad_unlock": False,
+                        "error": None
+                    }
             except Exception as ce:
                 print(f"[PYTUBEFIX {client_type} NOTICE]: {ce}")
                 continue
@@ -685,10 +726,28 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
 # ─────────────────────────────────────────────
 # TikWM TikTok Engine
 # ─────────────────────────────────────────────
+def resolve_redirects(url: str) -> str:
+    """Follow HTTP 301/302 redirects to find the canonical destination URL."""
+    try:
+        req = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+        })
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            return resp.geturl() or url
+    except Exception:
+        return url
+
+# ─────────────────────────────────────────────
+# TikWM TikTok Engine
+# ─────────────────────────────────────────────
 def try_tikwm(url: str) -> Optional[Dict[str, Any]]:
     try:
+        clean_url = url
+        if any(short in url.lower() for short in ["vm.tiktok.com", "vt.tiktok.com", "/t/"]):
+            clean_url = resolve_redirects(url)
+
         post_data = urllib.parse.urlencode({
-            'url': url,
+            'url': clean_url,
             'count': 12,
             'cursor': 0,
             'web': 1,
@@ -705,7 +764,7 @@ def try_tikwm(url: str) -> Optional[Dict[str, Any]]:
                 'Referer': 'https://www.tikwm.com/'
             }
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             data = json.loads(resp.read().decode('utf-8', errors='ignore'))
             if data.get("code") == 0 and data.get("data"):
                 d = data["data"]
@@ -742,6 +801,23 @@ def try_tikwm(url: str) -> Optional[Dict[str, Any]]:
                         "vcodec": "h264",
                         "acodec": "aac"
                     })
+                if d.get("music"):
+                    music_url = d.get("music")
+                    if music_url.startswith("/"):
+                        music_url = "https://www.tikwm.com" + music_url
+                    formats.append({
+                        "format_id": "music",
+                        "ext": "mp3",
+                        "resolution": "Audio Track (MP3)",
+                        "filesize_approx": None,
+                        "url": music_url,
+                        "vcodec": "none",
+                        "acodec": "mp3"
+                    })
+
+                music_stream = d.get("music")
+                if music_stream and music_stream.startswith("/"):
+                    music_stream = "https://www.tikwm.com" + music_stream
 
                 return {
                     "success": True,
@@ -752,9 +828,9 @@ def try_tikwm(url: str) -> Optional[Dict[str, Any]]:
                     "duration": dur,
                     "duration_formatted": format_duration(dur),
                     "video_url": main_url,
-                    "audio_url": d.get("music") or main_url,
+                    "audio_url": music_stream or main_url,
                     "formats": formats,
-                    "requires_ad_unlock": (dur > 900),
+                    "requires_ad_unlock": False,
                     "error": None
                 }
     except Exception as e:
@@ -772,6 +848,43 @@ def normalize_instagram_url(url: str) -> str:
         shortcode = m.group(2)
         return f"https://www.instagram.com/{media_type}/{shortcode}/"
     return url
+
+def try_parth_dl(url: str) -> Optional[Dict[str, Any]]:
+    try:
+        from parth_dl.extractors import MediaExtractor
+        me = MediaExtractor(verbose=False)
+        res = me.extract(url)
+        if res and res.get('entries'):
+            entry = res['entries'][0]
+            v_url = entry.get('url')
+            if v_url:
+                title = entry.get('title') or "Instagram Media"
+                thumb = entry.get('thumbnail')
+                return {
+                    "success": True,
+                    "url": url,
+                    "platform": "Instagram",
+                    "title": title,
+                    "thumbnail": thumb,
+                    "duration": 0,
+                    "duration_formatted": "00:00",
+                    "video_url": v_url,
+                    "audio_url": v_url,
+                    "formats": [{
+                        "format_id": "hd",
+                        "ext": "mp4",
+                        "resolution": "HD MP4",
+                        "filesize_approx": None,
+                        "url": v_url,
+                        "vcodec": "h264",
+                        "acodec": "aac"
+                    }],
+                    "requires_ad_unlock": False,
+                    "error": None
+                }
+    except Exception as pe:
+        print(f"[PARTH-DL NOTICE]: {pe}")
+    return None
 
 def try_instagram_embed(url: str) -> Optional[Dict[str, Any]]:
     m = re.search(r'instagram\.com/(?:share/)?(?:reel|p|tv)/([0-9A-Za-z_-]+)', url)
@@ -857,7 +970,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
 def _do_extract_media_info(url: str) -> Dict[str, Any]:
     platform = detect_platform(url)
 
-    # ── Fast Engine 1: TikTok TikWM (0.3s, direct clean MP4) ──
+    # ── Fast Engine 1: TikTok TikWM (sub-second, direct clean watermark-free MP4) ──
     if platform == "TikTok":
         try:
             tikwm_res = try_tikwm(url)
@@ -866,7 +979,7 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
         except Exception as te:
             print(f"[TIKWM NOTICE]: {te}")
 
-    # ── Universal Engine: yt-dlp ──
+    # ── Universal Engine: yt-dlp (fast, comprehensive) ──
     ytdlp_error = None
     try:
         with yt_dlp.YoutubeDL(build_ydl_opts(platform)) as ydl:
@@ -898,7 +1011,7 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
                 "duration_formatted": format_duration(duration),
                 "video_url": video_url,
                 "audio_url": audio_url or video_url,
-                "formats": extracted_formats[-10:],
+                "formats": extracted_formats,
                 "requires_ad_unlock": False,
                 "error": None,
             }
@@ -921,8 +1034,11 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
         if tikwm_res and tikwm_res.get("success"):
             return tikwm_res
 
-    # ── Instagram Engine 2: Embed Scraper Fallback ──
+    # ── Instagram Fallbacks: parth-dl then Embed Scraper ──
     if platform == "Instagram":
+        parth_res = try_parth_dl(url)
+        if parth_res and parth_res.get("success"):
+            return parth_res
         ig_res = try_instagram_embed(url)
         if ig_res and ig_res.get("success"):
             return ig_res

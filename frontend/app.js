@@ -1,7 +1,25 @@
-// Active Backend API service hosted on Render (100% Free, zero external dependency)
-const API_BASE_URL = (
-    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+// Active Backend API service URL with dynamic speed & connectivity auto-fallback
+let API_BASE_URL = (
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.protocol === "file:"
 ) ? "http://127.0.0.1:8000" : "https://jpmediasaver-api.onrender.com";
+
+async function ensureFastestApi() {
+    try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 1000);
+        const res = await fetch("http://127.0.0.1:8000/health", { signal: ctrl.signal });
+        clearTimeout(tid);
+        if (res.ok) {
+            API_BASE_URL = "http://127.0.0.1:8000";
+            return API_BASE_URL;
+        }
+    } catch (_) {}
+    API_BASE_URL = "https://jpmediasaver-api.onrender.com";
+    return API_BASE_URL;
+}
+ensureFastestApi();
 
 document.addEventListener("DOMContentLoaded", () => {
     // Pre-warm Render backend in background so it is instantly awake
@@ -113,6 +131,9 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         const url = urlInput.value.trim();
         if (!url) return;
+
+        // Auto-select fastest available backend
+        await ensureFastestApi();
 
         // UI Reset & Loading State
         hide(resultCard);
@@ -233,7 +254,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (data.audio_url) {
-            downloadAudioBtn.href = `${API_BASE_URL}/api/proxy-download?url=${encodeURIComponent(data.audio_url)}&filename=${encodeURIComponent(safeTitle + '.mp3')}`;
+            let audioExt = "mp3";
+            if (data.formats && data.formats.length > 0) {
+                const audFmt = data.formats.find(f => f.url === data.audio_url || (f.acodec !== "none" && f.vcodec === "none"));
+                if (audFmt && audFmt.ext) {
+                    audioExt = audFmt.ext;
+                }
+            }
+            downloadAudioBtn.href = `${API_BASE_URL}/api/proxy-download?url=${encodeURIComponent(data.audio_url)}&filename=${encodeURIComponent(safeTitle + '.' + audioExt)}`;
             show(downloadAudioBtn);
         } else {
             hide(downloadAudioBtn);
