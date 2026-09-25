@@ -294,8 +294,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Direct Instant Downloads (Zero Ad Interruption)
-    // Buttons naturally trigger direct file streaming without modal gates
+    // Sponsor Ad Unlock Gate on Download Clicks
+    function handleDownloadGate(e, targetUrl) {
+        if (!isUnlockedForAd && targetUrl && targetUrl !== "#") {
+            e.preventDefault();
+            pendingDownloadTarget = targetUrl;
+            openAdUnlockModal();
+        }
+    }
+
+    downloadVideoBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadVideoBtn.href));
+    downloadAudioBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadAudioBtn.href));
+    downloadFormatBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadFormatBtn.href));
 
     // Ad Unlock Modal Logic
     function openAdUnlockModal() {
