@@ -370,16 +370,20 @@ def get_clean_youtube_cookies() -> tuple[Optional[str], Optional[str]]:
         line = line.strip()
         if not line:
             continue
-        if line.startswith("#"):
+        if line.startswith("#") and not line.startswith("#HttpOnly_"):
             if "Netscape" in line:
                 has_header = True
             clean_lines.append(line)
             continue
-        parts = re.split(r'\t+|\s{2,}|\s+', line)
+
+        is_httponly = line.startswith("#HttpOnly_")
+        cookie_str = line[10:] if is_httponly else line
+        parts = re.split(r'\t+|\s{2,}|\s+', cookie_str)
         if len(parts) >= 7:
             domain, flag, path, secure, expiration, name = parts[:6]
             value = " ".join(parts[6:])
-            clean_lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiration}\t{name}\t{value}")
+            prefix = "#HttpOnly_" if is_httponly else ""
+            clean_lines.append(f"{prefix}{domain}\t{flag}\t{path}\t{secure}\t{expiration}\t{name}\t{value}")
             pairs.append(f"{name}={value}")
         elif len(parts) == 2 and "=" not in parts[0]:
             pairs.append(f"{parts[0]}={parts[1]}")
@@ -419,12 +423,15 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
     }
 
     if platform == "YouTube":
+        cookie_path, _ = get_clean_youtube_cookies()
+        if cookie_path:
+            base['cookiefile'] = cookie_path
         base.update({
             'format': 'all',
             'geo_bypass': True,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android'],
+                    'player_client': ['web', 'mweb', 'android'],
                 }
             }
         })

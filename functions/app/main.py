@@ -43,7 +43,7 @@ def read_root():
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.1.7",
+        "version": "1.1.8",
         "youtube_cookies_present": bool(raw_cookies),
         "youtube_cookies_length": len(raw_cookies),
         "firebase": firebase_info["mode"],
@@ -81,6 +81,15 @@ def diagnose_youtube(url: Optional[str] = "https://www.youtube.com/watch?v=bFBvA
     diag = {}
     import time
     t0 = time.time()
+
+    from app.extractor import get_clean_youtube_cookies
+    c_path, c_hdr = get_clean_youtube_cookies()
+    diag["cookies_info"] = {
+        "cookie_file": c_path,
+        "cookie_file_exists": bool(c_path and os.path.exists(c_path)),
+        "cookie_header_length": len(c_hdr) if c_hdr else 0,
+        "sample": c_hdr[:50] if c_hdr else None
+    }
 
     import yt_dlp
     from app.extractor import build_ydl_opts, build_formats
