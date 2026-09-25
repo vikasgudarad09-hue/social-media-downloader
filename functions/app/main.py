@@ -43,7 +43,7 @@ def read_root():
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.1.8",
+        "version": "1.1.9",
         "youtube_cookies_present": bool(raw_cookies),
         "youtube_cookies_length": len(raw_cookies),
         "firebase": firebase_info["mode"],
@@ -92,29 +92,38 @@ def diagnose_youtube(url: Optional[str] = "https://www.youtube.com/watch?v=bFBvA
     }
 
     import yt_dlp
-    from app.extractor import build_ydl_opts, build_formats
-    try:
-        opts = build_ydl_opts("YouTube")
-        diag["ydl_cookiefile"] = opts.get("cookiefile")
-        diag["ydl_extractor_args"] = opts.get("extractor_args")
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            fmts, v_url, a_url = build_formats(info)
-            diag["ytdlp"] = {
-                "success": True,
-                "elapsed_seconds": round(time.time() - t0, 2),
-                "title": info.get("title"),
-                "formats_count": len(fmts),
-                "video_url": bool(v_url),
-                "audio_url": bool(a_url)
+    clients_to_test = ['android', 'ios', 'tv_embedded', 'mweb', 'web']
+    diag["clients_results"] = {}
+    for c in clients_to_test:
+        ct0 = time.time()
+        try:
+            test_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'skip_download': True,
+                'socket_timeout': 6,
+                'retries': 0,
+                'geo_bypass': True,
+                'extractor_args': {'youtube': {'player_client': [c]}}
             }
-    except Exception as ye:
-        diag["ytdlp"] = {
-            "success": False,
-            "elapsed_seconds": round(time.time() - t0, 2),
-            "error": str(ye)
-        }
+            if c_path and os.path.exists(c_path):
+                test_opts['cookiefile'] = c_path
+            with yt_dlp.YoutubeDL(test_opts) as ydl:
+                res_info = ydl.extract_info(url, download=False)
+                diag["clients_results"][c] = {
+                    "success": True,
+                    "elapsed": round(time.time() - ct0, 2),
+                    "title": res_info.get("title"),
+                    "formats": len(res_info.get("formats", []))
+                }
+        except Exception as ce:
+            diag["clients_results"][c] = {
+                "success": False,
+                "elapsed": round(time.time() - ct0, 2),
+                "error": str(ce)[:120]
+            }
 
+    diag["total_elapsed"] = round(time.time() - t0, 2)
     return diag
 
 @app.post("/api/extract", response_model=ExtractResponse)
