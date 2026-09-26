@@ -74,6 +74,46 @@ def extract_youtube_id(url: str) -> Optional[str]:
             return m.group(1)
     return None
 
+def find_corrected_youtube_id(video_id: str) -> Optional[str]:
+    """
+    Checks if a YouTube video ID has ambiguous character typos (e.g. 'l' vs 'I' vs '1', 'O' vs '0')
+    and discovers the genuine valid YouTube video ID via fast oEmbed verification.
+    """
+    if not video_id or len(video_id) != 11:
+        return None
+
+    ambig_map = {
+        'l': ['l', 'I', '1'],
+        'I': ['I', 'l', '1'],
+        '1': ['1', 'I', 'l'],
+        'O': ['O', '0'],
+        '0': ['0', 'O']
+    }
+    indices = [i for i, c in enumerate(video_id) if c in ambig_map]
+    if not indices or len(indices) > 4:
+        return None
+
+    import itertools
+    choices = [ambig_map[video_id[i]] for i in indices]
+    for combo in itertools.product(*choices):
+        cand = list(video_id)
+        for idx, repl in zip(indices, combo):
+            cand[idx] = repl
+        cand_id = ''.join(cand)
+        if cand_id == video_id:
+            continue
+        try:
+            req = urllib.request.Request(
+                f'https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={cand_id}&format=json',
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            )
+            with urllib.request.urlopen(req, timeout=2.5) as resp:
+                if resp.status == 200:
+                    return cand_id
+        except Exception:
+            pass
+    return None
+
 # ─────────────────────────────────────────────
 # Simple HTTP GET helper
 # ─────────────────────────────────────────────
@@ -1145,6 +1185,27 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             return cached_res
 
     res = _do_extract_media_info(clean_url)
+
+    # If YouTube extraction failed, attempt automatic ambiguous character recovery
+    if not res.get("success") and ("youtube.com" in clean_url.lower() or "youtu.be" in clean_url.lower()):
+        yt_id = extract_youtube_id(clean_url)
+        if yt_id:
+            fixed_id = find_corrected_youtube_id(yt_id)
+            if fixed_id and fixed_id != yt_id:
+                print(f"[YOUTUBE AUTO-CORRECT]: Resolved ambiguous ID {yt_id} -> {fixed_id}")
+                fixed_url = f"https://www.youtube.com/watch?v={fixed_id}"
+                fixed_res = _do_extract_media_info(fixed_url)
+                if fixed_res.get("success"):
+                    res = fixed_res
+
+    # Clean up error messages for users so internal bot flags don't confuse them
+    if not res.get("success") and res.get("error"):
+        err = str(res["error"])
+        if any(b in err.lower() for b in ["bot", "sign in", "confirm you're not a bot", "cookies-from-browser", "--cookies"]):
+            res["error"] = "YouTube requested verification for this video. Please ensure the link is public, or try another video link."
+        elif "unavailable" in err.lower():
+            res["error"] = "This video is unavailable or does not exist. Please check the URL for typos."
+
     if res.get("success"):
         _extraction_cache[clean_url] = (now, res)
     return res
@@ -1182,8 +1243,25 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
             err_str = str(ye1)
             ytdlp_error = err_str
             print(f"[YOUTUBE PRIMARY WARNING]: {ye1}")
-            # If bot challenge, 403, or cookie issue, retry immediately with clean unauthenticated android/ios client
-            if any(k in err_str.lower() for k in ["bot", "sign in", "cookie", "login", "confirm you're not a bot", "403"]):
+
+            # 1. Immediately check if the video ID contains ambiguous characters (e.g. l vs I)
+            yt_id = extract_youtube_id(url)
+            if yt_id:
+                fixed_id = find_corrected_youtube_id(yt_id)
+                if fixed_id and fixed_id != yt_id:
+                    print(f"[YOUTUBE AUTO-CORRECT]: Found genuine ID {yt_id} -> {fixed_id}")
+                    url = f"https://www.youtube.com/watch?v={fixed_id}"
+                    try:
+                        with yt_dlp.YoutubeDL(build_ydl_opts(platform)) as ydl:
+                            info = ydl.extract_info(url, download=False)
+                            if info:
+                                ytdlp_error = None
+                    except Exception as ye_fix:
+                        err_str = str(ye_fix)
+                        ytdlp_error = err_str
+
+            # 2. If bot challenge, 403, or cookie issue, retry immediately with clean unauthenticated android/ios client
+            if not info and any(k in err_str.lower() for k in ["bot", "sign in", "cookie", "login", "confirm you're not a bot", "403"]):
                 try:
                     print("[YOUTUBE RETRY]: Retrying without cookies using android/ios client...")
                     clean_opts = {
