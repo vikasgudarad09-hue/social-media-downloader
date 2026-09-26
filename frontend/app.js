@@ -123,6 +123,8 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("Detected: Instagram", "info");
         } else if (val.includes("tiktok.com")) {
             showToast("Detected: TikTok", "info");
+        } else if (val.includes("vimeo.com")) {
+            showToast("Detected: Vimeo", "info");
         }
     });
 
@@ -336,10 +338,18 @@ document.addEventListener("DOMContentLoaded", () => {
     unlockAdBtn.addEventListener("click", () => {
         isUnlockedForAd = true;
         hide(adUnlockModal);
-        showToast("Download unlocked after ad view!", "success");
+        showToast("Download unlocked! Starting download...", "success");
 
         if (pendingDownloadTarget) {
-            window.open(pendingDownloadTarget, "_blank");
+            const dlLink = document.createElement("a");
+            dlLink.href = pendingDownloadTarget;
+            dlLink.setAttribute("download", "");
+            dlLink.target = "_blank";
+            document.body.appendChild(dlLink);
+            dlLink.click();
+            setTimeout(() => {
+                if (dlLink.parentNode) dlLink.remove();
+            }, 300);
             pendingDownloadTarget = null;
         }
     });

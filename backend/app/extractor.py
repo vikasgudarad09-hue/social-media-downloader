@@ -18,6 +18,8 @@ def detect_platform(url: str) -> str:
         return "TikTok"
     elif "youtube.com" in url_lower or "youtu.be" in url_lower:
         return "YouTube"
+    elif "vimeo.com" in url_lower:
+        return "Vimeo"
     elif "twitter.com" in url_lower or "x.com" in url_lower:
         return "X (Twitter)"
     elif "facebook.com" in url_lower or "fb.watch" in url_lower:
@@ -44,7 +46,7 @@ def format_duration(seconds: Optional[Any]) -> str:
     m, s = divmod(sec, 60)
     h, m = divmod(m, 60)
     if h > 0:
-        return f"{h:02d}:{s:02d}"
+        return f"{h:02d}:{m:02d}:{s:02d}"
     return f"{m:02d}:{s:02d}"
 
 def format_filesize(bytes_val: Optional[int]) -> Optional[str]:
@@ -429,6 +431,19 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
         base.update({
             'format': 'all',
             'geo_bypass': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'ios', 'web'],
+                }
+            }
+        })
+    elif platform == "Vimeo":
+        base.update({
+            'format': 'best[ext=mp4]/best',
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+                'Referer': 'https://vimeo.com/',
+            }
         })
     elif platform == "Instagram":
         cookie_path, _ = get_clean_youtube_cookies()
@@ -575,7 +590,7 @@ def build_formats(info: Dict):
 # ─────────────────────────────────────────────
 # pytubefix YouTube Engine (fast 0.8s, reliable)
 # ─────────────────────────────────────────────
-def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
+def try_pytubefix(url: str, use_cookies: bool = True) -> Optional[Dict[str, Any]]:
     try:
         from pytubefix import YouTube
 
@@ -584,22 +599,30 @@ def try_pytubefix(url: str) -> Optional[Dict[str, Any]]:
         target_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else url
 
         # Priority clients for fallback - WEB first for fastest response
-        client_candidates = ['WEB', 'ANDROID_VR']
+        client_candidates = ['WEB', 'ANDROID_VR', 'ANDROID']
 
-        # Inject user session cookies if present to bypass datacenter 403 Forbidden
-        _, cookie_header = get_clean_youtube_cookies()
-        if cookie_header:
+        # Inject user session cookies if requested and present
+        if use_cookies:
+            _, cookie_header = get_clean_youtube_cookies()
+            if cookie_header:
+                try:
+                    import pytubefix.request
+                    orig_exec = getattr(pytubefix.request, '_orig_execute_request', pytubefix.request._execute_request)
+                    pytubefix.request._orig_execute_request = orig_exec
+                    def patched_exec(req_url, method=None, headers=None, data=None, timeout=6):
+                        if headers is None:
+                            headers = {}
+                        if 'Cookie' not in headers:
+                            headers['Cookie'] = cookie_header
+                        return orig_exec(req_url, method=method, headers=headers, data=data, timeout=timeout)
+                    pytubefix.request._execute_request = patched_exec
+                except Exception:
+                    pass
+        else:
             try:
                 import pytubefix.request
-                orig_exec = getattr(pytubefix.request, '_orig_execute_request', pytubefix.request._execute_request)
-                pytubefix.request._orig_execute_request = orig_exec
-                def patched_exec(req_url, method=None, headers=None, data=None, timeout=6):
-                    if headers is None:
-                        headers = {}
-                    if 'Cookie' not in headers:
-                        headers['Cookie'] = cookie_header
-                    return orig_exec(req_url, method=method, headers=headers, data=data, timeout=timeout)
-                pytubefix.request._execute_request = patched_exec
+                if hasattr(pytubefix.request, '_orig_execute_request'):
+                    pytubefix.request._execute_request = pytubefix.request._orig_execute_request
             except Exception:
                 pass
 
@@ -843,6 +866,112 @@ def try_tikwm(url: str) -> Optional[Dict[str, Any]]:
     return None
 
 # ─────────────────────────────────────────────
+# Vimeo Engine (Direct config + embed player)
+# ─────────────────────────────────────────────
+def extract_vimeo_id(url: str) -> Optional[str]:
+    m = re.search(r'vimeo\.com/(?:channels/(?:\w+/)?|groups/[^/]+/videos/|album/(?:\d+/)?video/|video/|)(\d+)', url)
+    return m.group(1) if m else None
+
+def try_vimeo(url: str) -> Optional[Dict[str, Any]]:
+    vid = extract_vimeo_id(url)
+    if not vid:
+        return None
+
+    # 1. Direct player config JSON API (fast, extracts progressive MP4s if enabled)
+    try:
+        config_url = f"https://player.vimeo.com/video/{vid}/config"
+        req = urllib.request.Request(
+            config_url,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+                'Referer': f'https://vimeo.com/{vid}',
+                'Accept': 'application/json, text/plain, */*'
+            }
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            cfg = json.loads(resp.read().decode('utf-8'))
+            video_meta = cfg.get('video', {})
+            title = video_meta.get('title') or "Vimeo Video"
+            duration = video_meta.get('duration', 0)
+            thumbs = video_meta.get('thumbs', {})
+            thumbnail = thumbs.get('base') or (list(thumbs.values())[-1] if thumbs else None)
+
+            progs = cfg.get('request', {}).get('files', {}).get('progressive', [])
+            formats = []
+            for p in progs:
+                u = p.get('url')
+                if not u:
+                    continue
+                q = p.get('quality') or (f"{p.get('height')}p" if p.get('height') else "HD")
+                formats.append({
+                    "format_id": str(p.get('profile') or q),
+                    "ext": "mp4",
+                    "resolution": f"{q} (Video + Audio)",
+                    "filesize_approx": None,
+                    "url": u,
+                    "vcodec": "h264",
+                    "acodec": "aac"
+                })
+
+            if formats:
+                formats.sort(key=lambda x: int(''.join(filter(str.isdigit, x['resolution'])) or 0), reverse=True)
+                return {
+                    "success": True,
+                    "url": url,
+                    "platform": "Vimeo",
+                    "title": title,
+                    "thumbnail": thumbnail,
+                    "duration": duration,
+                    "duration_formatted": format_duration(duration),
+                    "video_url": formats[0]['url'],
+                    "audio_url": formats[0]['url'],
+                    "formats": formats,
+                    "requires_ad_unlock": False,
+                    "error": None
+                }
+    except Exception as ve:
+        print(f"[VIMEO CONFIG NOTICE]: {ve}")
+
+    # 2. yt-dlp via embed player URL (bypasses Vimeo web login requirement)
+    try:
+        player_embed_url = f"https://player.vimeo.com/video/{vid}"
+        opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'skip_download': True,
+            'noplaylist': True,
+            'socket_timeout': 8,
+            'retries': 1,
+            'format': 'best[ext=mp4]/best'
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(player_embed_url, download=False)
+            if info:
+                title = info.get('title') or "Vimeo Video"
+                thumbnail = info.get('thumbnail')
+                duration = int(float(info.get('duration') or 0))
+                extracted_formats, video_url, audio_url = build_formats(info)
+                if video_url and extracted_formats:
+                    return {
+                        "success": True,
+                        "url": url,
+                        "platform": "Vimeo",
+                        "title": title,
+                        "thumbnail": thumbnail,
+                        "duration": duration,
+                        "duration_formatted": format_duration(duration),
+                        "video_url": video_url,
+                        "audio_url": audio_url or video_url,
+                        "formats": extracted_formats,
+                        "requires_ad_unlock": False,
+                        "error": None
+                    }
+    except Exception as ye:
+        print(f"[VIMEO YTDLP NOTICE]: {ye}")
+
+    return None
+
+# ─────────────────────────────────────────────
 # Instagram URL Normalizer & Embed Engine
 # ─────────────────────────────────────────────
 def normalize_instagram_url(url: str) -> str:
@@ -859,31 +988,71 @@ def try_parth_dl(url: str) -> Optional[Dict[str, Any]]:
         from parth_dl.extractors import MediaExtractor
         me = MediaExtractor(verbose=False)
         res = me.extract(url)
-        if res and res.get('entries'):
-            entry = res['entries'][0]
-            v_url = entry.get('url')
-            if v_url:
-                title = entry.get('title') or "Instagram Media"
-                thumb = entry.get('thumbnail')
+        if res:
+            v_url = None
+            formats = []
+
+            # 1. Check formats array from finalize_info
+            raw_formats = res.get('formats') or []
+            if raw_formats:
+                v_url = raw_formats[0].get('url')
+                for idx, f in enumerate(raw_formats):
+                    formats.append({
+                        "format_id": str(f.get("format_id") or f"fmt-{idx}"),
+                        "ext": "mp4",
+                        "resolution": f"{f.get('height', 'HD')}p" if f.get('height') else "HD",
+                        "filesize_approx": None,
+                        "url": f.get("url"),
+                        "vcodec": "h264",
+                        "acodec": "aac"
+                    })
+
+            # 2. Check entries if formats is empty
+            if not v_url and res.get('entries'):
+                entry = res['entries'][0]
+                entry_fmts = entry.get('formats') or []
+                if entry_fmts:
+                    v_url = entry_fmts[0].get('url')
+                    for idx, f in enumerate(entry_fmts):
+                        formats.append({
+                            "format_id": str(f.get("format_id") or f"fmt-{idx}"),
+                            "ext": "mp4",
+                            "resolution": f"{f.get('height', 'HD')}p" if f.get('height') else "HD",
+                            "filesize_approx": None,
+                            "url": f.get("url"),
+                            "vcodec": "h264",
+                            "acodec": "aac"
+                        })
+
+            # 3. Check images for photos or carousels
+            if not v_url and res.get('images'):
+                img = res['images'][0]
+                v_url = img.get('url')
+                formats.append({
+                    "format_id": "image",
+                    "ext": "jpg",
+                    "resolution": "Original Image",
+                    "filesize_approx": None,
+                    "url": v_url,
+                    "vcodec": "none",
+                    "acodec": "none"
+                })
+
+            if v_url and formats:
+                title = res.get('title') or "Instagram Media"
+                thumb = res.get('thumbnail')
+                dur = res.get('duration') or 0
                 return {
                     "success": True,
                     "url": url,
                     "platform": "Instagram",
                     "title": title,
                     "thumbnail": thumb,
-                    "duration": 0,
-                    "duration_formatted": "00:00",
+                    "duration": dur,
+                    "duration_formatted": format_duration(dur),
                     "video_url": v_url,
                     "audio_url": v_url,
-                    "formats": [{
-                        "format_id": "hd",
-                        "ext": "mp4",
-                        "resolution": "HD MP4",
-                        "filesize_approx": None,
-                        "url": v_url,
-                        "vcodec": "h264",
-                        "acodec": "aac"
-                    }],
+                    "formats": formats,
                     "requires_ad_unlock": False,
                     "error": None
                 }
@@ -900,23 +1069,31 @@ def try_instagram_embed(url: str) -> Optional[Dict[str, Any]]:
 
     try:
         req = urllib.request.Request(embed_url, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
         })
         with urllib.request.urlopen(req, timeout=8) as resp:
             html = resp.read().decode('utf-8', errors='ignore')
 
-            video_urls = re.findall(r'video_url["\']?\s*:\s*["\']([^"\']+)["\']', html)
-            if not video_urls:
-                video_urls = re.findall(r'https?://[^\s"\'\\]+\.mp4[^\s"\'\\]*', html)
+            # Search both direct and JSON-escaped URLs
+            found_videos = []
+            for vm in re.finditer(r'https?(?::|%3A)(?:\\/\\/|//)[^\s"\'<>]+\.mp4[^\s"\'<>]*', html):
+                raw_u = vm.group(0).replace('\\u0026', '&').replace('\\/', '/').replace('&amp;', '&')
+                if raw_u not in found_videos:
+                    found_videos.append(raw_u)
+
+            if not found_videos:
+                video_urls = re.findall(r'video_url["\']?\s*:\s*["\']([^"\']+)["\']', html)
+                if video_urls:
+                    found_videos.append(video_urls[0].replace('\\u0026', '&').replace('\\/', '/'))
 
             thumbnail_urls = re.findall(r'thumbnail_src["\']?\s*:\s*["\']([^"\']+)["\']', html)
             if not thumbnail_urls:
                 thumbnail_urls = re.findall(r'display_url["\']?\s*:\s*["\']([^"\']+)["\']', html)
 
-            if video_urls:
-                clean_video = video_urls[0].replace('\\u0026', '&').replace('\\/', '/')
+            if found_videos:
+                clean_video = found_videos[0]
                 clean_thumb = thumbnail_urls[0].replace('\\u0026', '&').replace('\\/', '/') if thumbnail_urls else None
 
                 return {
@@ -941,8 +1118,8 @@ def try_instagram_embed(url: str) -> Optional[Dict[str, Any]]:
                     "requires_ad_unlock": False,
                     "error": None
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[INSTAGRAM EMBED NOTICE]: {e}")
     return None
 
 # ─────────────────────────────────────────────
@@ -984,13 +1161,63 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
         except Exception as te:
             print(f"[TIKWM NOTICE]: {te}")
 
+    # ── Fast Engine 2: Vimeo (direct config + embed player) ──
+    if platform == "Vimeo":
+        try:
+            vimeo_res = try_vimeo(url)
+            if vimeo_res and vimeo_res.get("success"):
+                return vimeo_res
+        except Exception as ve:
+            print(f"[VIMEO NOTICE]: {ve}")
+
     # ── Universal Engine: yt-dlp (fast, comprehensive) ──
     ytdlp_error = None
-    try:
-        with yt_dlp.YoutubeDL(build_ydl_opts(platform)) as ydl:
-            info = ydl.extract_info(url, download=False)
-            if info is None:
-                raise ValueError("No info returned")
+    info = None
+
+    if platform == "YouTube":
+        try:
+            with yt_dlp.YoutubeDL(build_ydl_opts(platform)) as ydl:
+                info = ydl.extract_info(url, download=False)
+        except Exception as ye1:
+            err_str = str(ye1)
+            ytdlp_error = err_str
+            print(f"[YOUTUBE PRIMARY WARNING]: {ye1}")
+            # If bot challenge, 403, or cookie issue, retry immediately with clean unauthenticated android/ios client
+            if any(k in err_str.lower() for k in ["bot", "sign in", "cookie", "login", "confirm you're not a bot", "403"]):
+                try:
+                    print("[YOUTUBE RETRY]: Retrying without cookies using android/ios client...")
+                    clean_opts = {
+                        'quiet': True,
+                        'no_warnings': True,
+                        'skip_download': True,
+                        'noplaylist': True,
+                        'socket_timeout': 10,
+                        'retries': 2,
+                        'format': 'all',
+                        'geo_bypass': True,
+                        'extractor_args': {
+                            'youtube': {
+                                'player_client': ['android', 'ios']
+                            }
+                        }
+                    }
+                    with yt_dlp.YoutubeDL(clean_opts) as a_ydl:
+                        info = a_ydl.extract_info(url, download=False)
+                        if info:
+                            ytdlp_error = None
+                except Exception as ye2:
+                    print(f"[YOUTUBE CLEAN RETRY FAILED]: {ye2}")
+                    ytdlp_error = str(ye2)
+    else:
+        try:
+            with yt_dlp.YoutubeDL(build_ydl_opts(platform)) as ydl:
+                info = ydl.extract_info(url, download=False)
+        except Exception as e:
+            ytdlp_error = str(e)
+            print(f"[EXTRACT WARNING] yt-dlp failed for {platform} ({url}): {e}")
+
+    if info:
+        try:
             if 'entries' in info and info['entries']:
                 info = info['entries'][0]
 
@@ -1002,6 +1229,7 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
                 duration = int(float(info.get('duration') or 0))
             except (ValueError, TypeError):
                 duration = 0
+
             # If YouTube video lacks progressive streams (video+audio combined),
             # query Android client format 18 (fast ~1s) to guarantee synchronized audio/video playback
             if platform == "YouTube":
@@ -1031,35 +1259,61 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
                         print(f"[ANDROID PROG NOTICE]: {ae}")
 
             extracted_formats, video_url, audio_url = build_formats(info)
-            if not video_url or not extracted_formats:
-                raise ValueError("No playable video stream found")
+            if video_url and extracted_formats:
+                return {
+                    "success": True,
+                    "url": url,
+                    "platform": platform,
+                    "title": title,
+                    "thumbnail": thumbnail,
+                    "duration": duration,
+                    "duration_formatted": format_duration(duration),
+                    "video_url": video_url,
+                    "audio_url": audio_url or video_url,
+                    "formats": extracted_formats,
+                    "requires_ad_unlock": False,
+                    "error": None,
+                }
+        except Exception as parse_err:
+            print(f"[FORMAT BUILD ERROR]: {parse_err}")
 
-            return {
-                "success": True,
-                "url": url,
-                "platform": platform,
-                "title": title,
-                "thumbnail": thumbnail,
-                "duration": duration,
-                "duration_formatted": format_duration(duration),
-                "video_url": video_url,
-                "audio_url": audio_url or video_url,
-                "formats": extracted_formats,
-                "requires_ad_unlock": False,
-                "error": None,
-            }
-    except Exception as e:
-        ytdlp_error = str(e)
-        print(f"[EXTRACT WARNING] yt-dlp failed for {platform} ({url}): {e}")
-
-    # ── YouTube Engine Fallback: pytubefix ──
+    # ── YouTube Engine Fallback 2: pytubefix ──
     if platform == "YouTube":
         try:
-            pytube_res = try_pytubefix(url)
+            pytube_res = try_pytubefix(url, use_cookies=True)
             if pytube_res and pytube_res.get("success"):
                 return pytube_res
-        except Exception as pe:
-            print(f"[PYTUBEFIX ERROR]: {pe}")
+        except Exception as pe1:
+            print(f"[PYTUBEFIX COOKIE NOTICE]: {pe1}")
+
+        # Retry pytubefix without cookies in case cookies are expired/flagged
+        try:
+            pytube_clean_res = try_pytubefix(url, use_cookies=False)
+            if pytube_clean_res and pytube_clean_res.get("success"):
+                return pytube_clean_res
+        except Exception as pe2:
+            print(f"[PYTUBEFIX CLEAN NOTICE]: {pe2}")
+
+        # ── YouTube Engine Fallback 3: Invidious / Piped API ──
+        yt_id = extract_youtube_id(url)
+        if yt_id:
+            try:
+                inv_data = try_invidious(yt_id)
+                if inv_data:
+                    inv_res = parse_invidious_response(inv_data, yt_id, url)
+                    if inv_res and inv_res.get("success"):
+                        return inv_res
+            except Exception as ie:
+                print(f"[INVIDIOUS NOTICE]: {ie}")
+
+            try:
+                piped_data = try_piped(yt_id)
+                if piped_data:
+                    piped_res = parse_piped_response(piped_data, yt_id, url)
+                    if piped_res and piped_res.get("success"):
+                        return piped_res
+            except Exception as pie:
+                print(f"[PIPED NOTICE]: {pie}")
 
     # ── TikTok Engine Fallback: TikWM ──
     if platform == "TikTok":
@@ -1075,6 +1329,22 @@ def _do_extract_media_info(url: str) -> Dict[str, Any]:
         ig_res = try_instagram_embed(url)
         if ig_res and ig_res.get("success"):
             return ig_res
+
+    # ── Vimeo specific friendly failure note ──
+    if platform == "Vimeo":
+        return {
+            "success": False,
+            "url": url,
+            "platform": "Vimeo",
+            "title": "Extraction Failed",
+            "thumbnail": None,
+            "duration": 0,
+            "duration_formatted": "00:00",
+            "video_url": None,
+            "audio_url": None,
+            "formats": [],
+            "error": "Could not extract Vimeo video. This video is either private or restricted to adaptive HLS streaming by the creator without progressive MP4 download permissions.",
+        }
 
     # ── All engines failed ──
     detailed_error = ytdlp_error or "Could not extract media. This video may be private, removed, or region-locked."
