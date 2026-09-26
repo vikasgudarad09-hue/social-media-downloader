@@ -92,9 +92,14 @@ def diagnose_youtube(url: Optional[str] = "https://www.youtube.com/watch?v=bFBvA
     }
 
     import yt_dlp
-    clients_to_test = ['android', 'ios', 'web']
+    clients_to_test = [
+        ('android_clean', ['android'], False),
+        ('ios_clean', ['ios'], False),
+        ('android_cookies', ['android'], True),
+        ('web_cookies', ['web'], True),
+    ]
     diag["clients_results"] = {}
-    for c in clients_to_test:
+    for name, c_list, use_cookie in clients_to_test:
         ct0 = time.time()
         try:
             test_opts = {
@@ -102,23 +107,23 @@ def diagnose_youtube(url: Optional[str] = "https://www.youtube.com/watch?v=bFBvA
                 'no_warnings': True,
                 'skip_download': True,
                 'format': 'all',
-                'socket_timeout': 6,
+                'socket_timeout': 5,
                 'retries': 0,
                 'geo_bypass': True,
-                'extractor_args': {'youtube': {'player_client': [c]}}
+                'extractor_args': {'youtube': {'player_client': c_list}}
             }
-            if c_path and os.path.exists(c_path):
+            if use_cookie and c_path and os.path.exists(c_path):
                 test_opts['cookiefile'] = c_path
             with yt_dlp.YoutubeDL(test_opts) as ydl:
                 res_info = ydl.extract_info(url, download=False)
-                diag["clients_results"][c] = {
+                diag["clients_results"][name] = {
                     "success": True,
                     "elapsed": round(time.time() - ct0, 2),
                     "title": res_info.get("title"),
                     "formats": len(res_info.get("formats", []))
                 }
         except Exception as ce:
-            diag["clients_results"][c] = {
+            diag["clients_results"][name] = {
                 "success": False,
                 "elapsed": round(time.time() - ct0, 2),
                 "error": str(ce)[:120]

@@ -465,15 +465,12 @@ def build_ydl_opts(platform: str) -> Dict[str, Any]:
     }
 
     if platform == "YouTube":
-        cookie_path, _ = get_clean_youtube_cookies()
-        if cookie_path:
-            base['cookiefile'] = cookie_path
         base.update({
             'format': 'all',
             'geo_bypass': True,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'ios', 'web'],
+                    'player_client': ['android', 'ios'],
                 }
             }
         })
