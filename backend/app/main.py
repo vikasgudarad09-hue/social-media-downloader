@@ -36,14 +36,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.responses import FileResponse
+
 @app.get("/")
-def read_root():
+def read_root(request: Request):
+    index_file = os.path.join(frontend_dir, "index.html")
+    accept = request.headers.get("accept", "")
+    if os.path.exists(index_file) and ("text/html" in accept or "*/*" in accept):
+        return FileResponse(index_file)
     firebase_info = get_firebase_status()
     raw_cookies = os.environ.get("YOUTUBE_COOKIES", "")
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "youtube_cookies_present": bool(raw_cookies),
         "youtube_cookies_length": len(raw_cookies),
         "firebase": firebase_info["mode"],
@@ -268,6 +274,120 @@ async def proxy_download(request: Request, url: str, filename: Optional[str] = "
         await client.aclose()
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url=url, status_code=302)
+
+# ─────────────────────────────────────────────
+# High-Speed Native Media Conversion API
+# ─────────────────────────────────────────────
+from fastapi import UploadFile, File, Form, BackgroundTasks
+import tempfile
+import subprocess
+import shutil
+
+def _cleanup_paths(*paths):
+    for p in paths:
+        try:
+            if p and os.path.exists(p):
+                os.remove(p)
+        except Exception:
+            pass
+
+import asyncio
+
+# Concurrency limiter: Allow up to 6 heavy FFmpeg transcodes simultaneously; queue any others cleanly
+_CONVERT_SEMAPHORE = asyncio.Semaphore(6)
+MAX_CONVERT_SIZE_BYTES = 400 * 1024 * 1024  # 400 MB protection limit
+
+def _run_ffmpeg_sync(cmd: list, in_path: str, out_path: str) -> None:
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
+    if proc.returncode != 0:
+        err_msg = proc.stderr.decode("utf-8", errors="ignore")[-400:]
+        raise RuntimeError(f"FFmpeg transcode failed: {err_msg}")
+
+@app.post("/api/convert")
+async def api_convert_media(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    format: str = Form(...)
+):
+    target_fmt = format.lower().strip()
+    presets = {
+        "mp4": ("video/mp4", ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart"]),
+        "webm": ("video/webm", ["-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-c:a", "libopus"]),
+        "avi": ("video/x-msvideo", ["-c:v", "mpeg4", "-qscale:v", "3", "-c:a", "mp3"]),
+        "gif": ("image/gif", ["-t", "10", "-vf", "fps=12,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"]),
+        "mp3": ("audio/mpeg", ["-vn", "-c:a", "libmp3lame", "-q:a", "2"]),
+        "wav": ("audio/wav", ["-vn", "-c:a", "pcm_s16le"]),
+        "ogg": ("audio/ogg", ["-vn", "-c:a", "libvorbis", "-q:a", "4"]),
+        "aac": ("audio/aac", ["-vn", "-c:a", "aac", "-b:a", "192k"]),
+        "flac": ("audio/flac", ["-vn", "-c:a", "flac"]),
+    }
+
+    if target_fmt not in presets:
+        raise HTTPException(status_code=400, detail=f"Unsupported target format: {target_fmt}")
+
+    mime_type, ffmpeg_flags = presets[target_fmt]
+
+    in_path = None
+    out_path = None
+
+    try:
+        orig_ext = os.path.splitext(file.filename or "")[1] or ".bin"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=orig_ext) as in_tmp:
+            in_path = in_tmp.name
+            # Chunked write with size limit to prevent memory/disk exhaustion
+            bytes_written = 0
+            while chunk := await file.read(1024 * 1024):  # 1MB chunks
+                bytes_written += len(chunk)
+                if bytes_written > MAX_CONVERT_SIZE_BYTES:
+                    in_tmp.close()
+                    _cleanup_paths(in_path)
+                    raise HTTPException(
+                        status_code=413,
+                        detail="File too large. Maximum supported conversion size is 400 MB."
+                    )
+                in_tmp.write(chunk)
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{target_fmt}") as out_tmp:
+            out_path = out_tmp.name
+
+        cmd = ["ffmpeg", "-y", "-i", in_path] + ffmpeg_flags + [out_path]
+
+        # Acquire semaphore to safely throttle CPU/RAM under high traffic
+        async with _CONVERT_SEMAPHORE:
+            await asyncio.to_thread(_run_ffmpeg_sync, cmd, in_path, out_path)
+
+        orig_base = os.path.splitext(file.filename or "media")[0]
+        safe_base = re.sub(r'[^a-zA-Z0-9_\- ]', '', orig_base).strip() or "media"
+        out_filename = f"{safe_base}.{target_fmt}"
+
+        background_tasks.add_task(_cleanup_paths, in_path, out_path)
+
+        return FileResponse(
+            out_path,
+            media_type=mime_type,
+            filename=out_filename,
+            headers={"Content-Disposition": f'attachment; filename="{out_filename}"'}
+        )
+
+    except HTTPException:
+        _cleanup_paths(in_path, out_path)
+        raise
+    except subprocess.TimeoutExpired:
+        _cleanup_paths(in_path, out_path)
+        raise HTTPException(status_code=504, detail="Media conversion timed out (>180s)")
+    except Exception as e:
+        _cleanup_paths(in_path, out_path)
+        raise HTTPException(status_code=500, detail=f"Conversion error: {str(e)}")
+
+
+# ─────────────────────────────────────────────
+# Mount Frontend Web App Static Files
+# ─────────────────────────────────────────────
+from fastapi.staticfiles import StaticFiles
+
+frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))
+if os.path.exists(frontend_dir):
+    app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn

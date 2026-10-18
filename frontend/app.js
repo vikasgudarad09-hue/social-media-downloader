@@ -128,11 +128,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Form Submission with Auto-Retry
+    // Form Submission with Maintenance Notice
     extractForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const url = urlInput.value.trim();
-        if (!url) return;
+        showToast("🛠️ JPMediaSaver is currently under maintenance. Please use File2File!", "warning");
+        setTimeout(() => {
+            window.location.href = "file2file.html";
+        }, 1200);
+        return;
 
         // Auto-select fastest available backend
         await ensureFastestApi();

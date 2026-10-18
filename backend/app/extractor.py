@@ -1199,7 +1199,8 @@ def extract_media_info(url: str) -> Dict[str, Any]:
     if not res.get("success") and res.get("error"):
         err = str(res["error"])
         if any(b in err.lower() for b in ["bot", "sign in", "confirm you're not a bot", "cookies-from-browser", "--cookies"]):
-            res["error"] = "YouTube requested verification for this video. Please ensure the link is public, or try another video link."
+            plat_name = detect_platform(clean_url)
+            res["error"] = f"{plat_name} requested verification or requires authentication. Please ensure the link is public, or try another video link."
         elif "unavailable" in err.lower():
             res["error"] = "This video is unavailable or does not exist. Please check the URL for typos."
 

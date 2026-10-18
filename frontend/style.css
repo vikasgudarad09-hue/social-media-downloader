@@ -95,3 +95,157 @@
 .animate-splash-bar {
     animation: splashProgressBar 5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
+/* File Converter Nav Button Blinking / Pulsing / Color Glow */
+@keyframes converterBlinkGlow {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 10px rgba(6, 182, 212, 0.45), 0 0 20px rgba(168, 85, 247, 0.25);
+        border-color: rgba(34, 211, 238, 0.7);
+        color: #a5f3fc;
+    }
+    50% {
+        transform: scale(1.06);
+        box-shadow: 0 0 25px rgba(6, 182, 212, 0.9), 0 0 45px rgba(168, 85, 247, 0.7), inset 0 0 10px rgba(34, 211, 238, 0.35);
+        border-color: #ffffff;
+        color: #ffffff;
+    }
+}
+
+.animate-converter-blink {
+    animation: converterBlinkGlow 1.8s infinite ease-in-out;
+}
+
+/* ─────────────────────────────────────────────
+   Next-Gen 3D Spatial & Holographic Aesthetics
+   ───────────────────────────────────────────── */
+.tilt-3d {
+    transform-style: preserve-3d;
+    transition: transform 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.25s ease;
+    position: relative;
+    box-shadow: 
+        0 20px 50px -10px rgba(0, 0, 0, 0.75),
+        0 10px 25px -5px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.08),
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.tilt-3d:hover {
+    box-shadow: 
+        0 30px 70px -15px rgba(0, 0, 0, 0.85),
+        0 15px 35px -8px rgba(99, 102, 241, 0.3),
+        0 0 0 1.5px rgba(168, 85, 247, 0.35),
+        inset 0 1px 2px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Specular Glare Overlay */
+.tilt-glare {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 25;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    mix-blend-mode: overlay;
+}
+
+/* 3D Floating Elements */
+@keyframes float3DSubtle {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-5px) rotate(0.6deg);
+    }
+}
+
+.float-3d-1 {
+    animation: float3DSubtle 4.5s infinite ease-in-out;
+}
+
+.float-3d-2 {
+    animation: float3DSubtle 5.2s infinite ease-in-out 1.2s;
+}
+
+.float-3d-3 {
+    animation: float3DSubtle 4.8s infinite ease-in-out 2.1s;
+}
+
+/* 3D Tactile Buttons */
+.btn-3d {
+    position: relative;
+    transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 
+        0 6px 18px rgba(99, 102, 241, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.btn-3d:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 
+        0 10px 25px rgba(99, 102, 241, 0.5),
+        0 4px 8px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn-3d:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: 
+        0 2px 6px rgba(99, 102, 241, 0.25),
+        inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* 3D Prism Border Halo */
+.prism-halo {
+    position: relative;
+}
+
+.prism-halo::before {
+    content: '';
+    position: absolute;
+    inset: -1.5px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.5), rgba(236, 72, 153, 0.4), rgba(34, 211, 238, 0.5));
+    z-index: -1;
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
+    filter: blur(1px);
+}
+
+.prism-halo:hover::before {
+    opacity: 1;
+    filter: blur(2px);
+}
+
+/* Multi-Layer 3D Depth & Elevation */
+.layer-3d-front {
+    transform: translateZ(35px);
+    transform-style: preserve-3d;
+    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.layer-3d-mid {
+    transform: translateZ(18px);
+    transform-style: preserve-3d;
+    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* 3D Orbiting Hero Rings */
+@keyframes orbitRing3D {
+    0% {
+        transform: rotateX(68deg) rotateZ(0deg);
+    }
+    100% {
+        transform: rotateX(68deg) rotateZ(360deg);
+    }
+}
+
+.animate-orbit-ring {
+    animation: orbitRing3D 18s linear infinite;
+    transform-style: preserve-3d;
+}
+
+
+

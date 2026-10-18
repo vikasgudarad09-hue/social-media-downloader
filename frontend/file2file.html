@@ -1,0 +1,2093 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080914">
+  <title>File2File — Universal File Conversion Lab</title>
+  <meta name="description" content="File2File — Convert images, PDFs, video & audio files entirely in your browser. No uploads, no servers, 100% private.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- PDF-lib for PDF manipulation -->
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+  <style>
+    /* ── Design tokens ── */
+    :root {
+      color-scheme: dark;
+      --bg: #080914;
+      --surface: #0e1020;
+      --panel: rgba(22, 23, 44, .78);
+      --text: #f4f3ff;
+      --muted: #a3a4bd;
+      --cyan: #73f3ef;
+      --violet: #a78bfa;
+      --rose: #fb7185;
+      --amber: #fbbf24;
+      --emerald: #34d399;
+      --line: rgba(255,255,255,.10);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --transition: .22s cubic-bezier(.4,0,.2,1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      min-height: 100vh;
+      color: var(--text);
+      font: 15px/1.6 Inter, ui-sans-serif, system-ui, sans-serif;
+      background:
+        radial-gradient(ellipse at 72% 12%, rgba(100, 70, 210, .18), transparent 42%),
+        radial-gradient(ellipse at 18% 82%, rgba(30, 190, 205, .10), transparent 38%),
+        var(--bg);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, select, input { font: inherit; }
+    img { max-width: 100%; display: block; }
+    .wrap { width: min(1180px, calc(100% - 36px)); margin: auto; }
+
+    /* ── Header ── */
+    header {
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .logo { font-weight: 900; font-size: 18px; letter-spacing: .08em; }
+    .logo span { color: var(--cyan); }
+    nav { display: flex; gap: 24px; color: var(--muted); font-size: 13px; font-weight: 500; }
+    nav a { transition: color var(--transition); }
+    nav a:hover { color: var(--text); }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(236, 72, 153, 0.22));
+      border: 1.5px solid rgba(251, 191, 36, 0.7);
+      color: #fef08a;
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: 0.02em;
+      text-decoration: none;
+      transition: all var(--transition);
+      box-shadow: 0 0 16px rgba(245, 158, 11, 0.35);
+      animation: backBtnBlink 1.8s infinite ease-in-out;
+    }
+    .back-link:hover {
+      color: #ffffff;
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.42), rgba(236, 72, 153, 0.42));
+      border-color: #ffffff;
+      transform: translateY(-1px) scale(1.04);
+      box-shadow: 0 0 28px rgba(245, 158, 11, 0.8), 0 0 45px rgba(236, 72, 153, 0.5);
+    }
+    .blinking-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fbbf24;
+      box-shadow: 0 0 8px #f59e0b, 0 0 14px #fbbf24;
+      animation: dotPulse 0.9s infinite alternate ease-in-out;
+      flex-shrink: 0;
+    }
+    @keyframes backBtnBlink {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 10px rgba(245, 158, 11, 0.35), 0 0 20px rgba(236, 72, 153, 0.2);
+        border-color: rgba(251, 191, 36, 0.65);
+        color: #fef08a;
+      }
+      50% {
+        transform: scale(1.06);
+        box-shadow: 0 0 24px rgba(245, 158, 11, 0.85), 0 0 42px rgba(236, 72, 153, 0.6), inset 0 0 12px rgba(251, 191, 36, 0.3);
+        border-color: #ffffff;
+        color: #ffffff;
+      }
+    }
+    @keyframes dotPulse {
+      0% { opacity: 0.35; transform: scale(0.75); }
+      100% { opacity: 1; transform: scale(1.35); }
+    }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 56px 0 40px;
+      text-align: center;
+    }
+    .eyebrow {
+      display: inline-block;
+      color: var(--cyan);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      padding: 5px 14px;
+      border: 1px solid rgba(115,243,239,.25);
+      border-radius: 999px;
+      background: rgba(115,243,239,.06);
+    }
+    .hero h1 {
+      font-size: clamp(36px, 5.5vw, 62px);
+      line-height: 1.02;
+      letter-spacing: -.04em;
+      margin-bottom: 14px;
+    }
+    .hero h1 em {
+      color: transparent;
+      background: linear-gradient(105deg, var(--cyan), #c4b5fd);
+      background-clip: text;
+      font-style: normal;
+    }
+    .hero p { max-width: 540px; margin: 0 auto; color: var(--muted); font-size: 16px; }
+
+    /* ── Mode tabs ── */
+    .mode-bar {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      padding: 5px;
+      margin: 0 auto 36px;
+      width: fit-content;
+      border-radius: 14px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--line);
+    }
+    .mode-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 20px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .mode-btn:hover { color: var(--text); background: rgba(255,255,255,.06); }
+    .mode-btn.active {
+      color: #080914;
+      background: linear-gradient(110deg, var(--cyan), #c4b5fd);
+      box-shadow: 0 4px 22px rgba(115,243,239,.20);
+    }
+    .mode-icon { font-size: 17px; }
+
+    /* ── Lab card ── */
+    .lab-card {
+      max-width: 720px;
+      margin: 0 auto 28px;
+      padding: 32px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--panel);
+      backdrop-filter: blur(22px);
+      box-shadow: 0 28px 80px rgba(0,0,0,.30);
+    }
+
+    /* ── Dropzone ── */
+    .dropzone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 165px;
+      padding: 28px 20px;
+      border: 2px dashed rgba(115,243,239,.40);
+      border-radius: var(--radius);
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+      position: relative;
+    }
+    .dropzone:hover, .dropzone.dragging {
+      background: rgba(115,243,239,.06);
+      border-color: var(--cyan);
+      transform: translateY(-2px);
+    }
+    .drop-icon { font-size: 38px; margin-bottom: 8px; opacity: .8; }
+    .dropzone strong { display: block; font-size: 15px; margin-bottom: 3px; }
+    .dropzone small { color: var(--muted); font-size: 12px; }
+    #fileInput { display: none; }
+
+    /* ── File list ── */
+    .file-list {
+      margin: 16px 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,.03);
+      font-size: 13px;
+    }
+    .file-item .fi-icon { font-size: 18px; flex-shrink: 0; }
+    .file-item .fi-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-item .fi-size { color: var(--muted); font-size: 12px; flex-shrink: 0; }
+    .file-item .fi-remove {
+      background: none; border: none; color: var(--rose); cursor: pointer; font-size: 16px;
+      padding: 0 4px; transition: opacity var(--transition); opacity: .6;
+    }
+    .file-item .fi-remove:hover { opacity: 1; }
+
+    /* ── Controls row ── */
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+    .controls select {
+      flex: 1;
+      min-width: 180px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      color: var(--text);
+      background: #14152a;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a3a4bd' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      cursor: pointer;
+    }
+    .controls select:focus { outline: 1px solid var(--cyan); border-color: var(--cyan); }
+
+    .primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 150px;
+      justify-content: center;
+      border: 0;
+      color: #071013;
+      background: linear-gradient(110deg, var(--cyan), #c4b5fd);
+      font-weight: 750;
+      font-size: 14px;
+      border-radius: var(--radius-sm);
+      padding: 12px 22px;
+      cursor: pointer;
+      transition: all var(--transition);
+      box-shadow: 0 4px 18px rgba(115,243,239,.15);
+    }
+    .primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(115,243,239,.25); }
+    .primary:active { transform: scale(.98); }
+    .primary:disabled { opacity: .42; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* ── Progress ── */
+    .progress-area {
+      margin-top: 20px;
+      display: none;
+    }
+    .progress-area.visible { display: block; }
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+    .progress-bar {
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,.08);
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--cyan), var(--violet));
+      width: 0%;
+      transition: width .3s ease;
+    }
+
+    /* ── Status / Result ── */
+    .status-msg {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--muted);
+      min-height: 18px;
+    }
+    .status-msg.error { color: var(--rose); }
+    .status-msg.success { color: var(--emerald); }
+
+    .result-area {
+      margin-top: 18px;
+      display: none;
+    }
+    .result-area.visible { display: block; }
+    .result-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 18px;
+      border: 1px solid rgba(52,211,153,.25);
+      border-radius: var(--radius);
+      background: rgba(52,211,153,.06);
+    }
+    .result-icon { font-size: 28px; }
+    .result-info { flex: 1; }
+    .result-info strong { display: block; font-size: 14px; color: var(--emerald); }
+    .result-info small { color: var(--muted); font-size: 12px; }
+    .result-dl {
+      border: 0;
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      background: var(--emerald);
+      color: #071013;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .result-dl:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(52,211,153,.3); }
+
+    /* ── Features grid ── */
+    .features {
+      padding: 48px 0 56px;
+      border-top: 1px solid var(--line);
+    }
+    .features h2 {
+      text-align: center;
+      font-size: 24px;
+      margin-bottom: 32px;
+    }
+    .feat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .feat-card {
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(14, 16, 32, 0.88);
+      backdrop-filter: blur(18px);
+      transition: all var(--transition);
+    }
+    .feat-card:hover {
+      border-color: rgba(115,243,239,.25);
+      background: rgba(115,243,239,.03);
+      transform: translateY(-3px);
+    }
+    .feat-icon { font-size: 28px; margin-bottom: 10px; }
+    .feat-card h3 { font-size: 15px; margin-bottom: 5px; }
+    .feat-card p { font-size: 13px; color: var(--muted); }
+
+    /* ── Supported formats strip ── */
+    .formats-strip {
+      padding: 28px 0 44px;
+    }
+    .formats-strip h3 { text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 16px; }
+    .fmt-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+    .fmt-tag {
+      padding: 6px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #d7d6e8;
+      background: rgba(255,255,255,.03);
+      transition: all var(--transition);
+    }
+    .fmt-tag:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    /* ── FFmpeg loading overlay ── */
+    .ffmpeg-loading {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(8,9,20,.92);
+      backdrop-filter: blur(8px);
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .ffmpeg-loading.visible { display: flex; }
+    .ffmpeg-loading .spinner {
+      width: 48px; height: 48px;
+      border: 3px solid var(--line);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    .ffmpeg-loading p { color: var(--muted); font-size: 14px; }
+    .ffmpeg-loading .subtext { font-size: 12px; color: rgba(163,164,189,.6); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer ── */
+    footer {
+      padding: 20px 0;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+    footer a { color: var(--cyan); }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .lab-card { padding: 20px 16px; }
+      .mode-bar { flex-wrap: wrap; }
+      .mode-btn { padding: 8px 14px; font-size: 12px; }
+      .controls { flex-direction: column; }
+      .controls select { width: 100%; }
+      nav { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
+
+    /* ── Hidden helper ── */
+    .hidden { display: none !important; }
+
+    /* ── 3D Spatial & Card Tilt Styles ── */
+    .tilt-3d {
+      transform-style: preserve-3d;
+      transition: transform 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.25s ease;
+      position: relative;
+    }
+    .tilt-glare {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      z-index: 25;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      mix-blend-mode: overlay;
+    }
+    .prism-halo {
+      position: relative;
+    }
+    .prism-halo::before {
+      content: '';
+      position: absolute;
+      inset: -1.5px;
+      border-radius: inherit;
+      background: linear-gradient(135deg, rgba(115, 243, 239, 0.45), rgba(167, 139, 250, 0.45), rgba(251, 113, 133, 0.35));
+      z-index: -1;
+      opacity: 0.55;
+      transition: opacity 0.3s ease;
+      filter: blur(1.5px);
+    }
+    .prism-halo:hover::before {
+      opacity: 0.95;
+      filter: blur(2.5px);
+    }
+    .btn-3d {
+      transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .btn-3d:hover {
+      transform: translateY(-2px) scale(1.02);
+    }
+    .btn-3d:active {
+      transform: translateY(1px) scale(0.98);
+    }
+    .layer-3d-front {
+      transform: translateZ(28px);
+      transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    @keyframes orbitRing3D {
+      0% { transform: translate(-50%, -50%) rotateX(68deg) rotateZ(0deg); }
+      100% { transform: translate(-50%, -50%) rotateX(68deg) rotateZ(360deg); }
+    }
+
+    /* ── Quota pill & Ad system ── */
+    .quota-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(14, 16, 32, 0.85);
+      border: 1px solid rgba(115, 243, 239, 0.28);
+      font-size: 12px;
+      color: var(--muted);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    }
+    .quota-pill strong {
+      color: var(--cyan);
+      font-weight: 700;
+    }
+    .quota-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+    }
+    .quota-bonus-btn {
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #080914;
+      background: linear-gradient(135deg, #73f3ef, #a78bfa);
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .quota-bonus-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 12px rgba(115, 243, 239, 0.6);
+    }
+
+    /* ── Ad Modal ── */
+    .ad-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 5, 12, 0.82);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      padding: 18px;
+    }
+    .ad-modal-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .ad-modal-card {
+      position: relative;
+      width: min(480px, 100%);
+      background: linear-gradient(145deg, rgba(22, 23, 44, 0.96), rgba(14, 16, 32, 0.98));
+      border: 1.5px solid rgba(115, 243, 239, 0.35);
+      border-radius: 20px;
+      padding: 28px 24px 22px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), 0 0 35px rgba(115, 243, 239, 0.2);
+      text-align: center;
+      transform: scale(0.94);
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .ad-modal-overlay.visible .ad-modal-card {
+      transform: scale(1);
+    }
+    .ad-modal-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+    }
+    .ad-modal-close:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+    .ad-modal-icon {
+      font-size: 34px;
+      margin-bottom: 8px;
+    }
+    .ad-modal-card h3 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .ad-modal-sub {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+    .ad-screen {
+      background: rgba(8, 9, 20, 0.85);
+      border: 1px solid rgba(115, 243, 239, 0.22);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .ad-badge {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: var(--cyan);
+      background: rgba(115, 243, 239, 0.12);
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid rgba(115, 243, 239, 0.3);
+    }
+    .ad-video-mockup {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 18px;
+      margin-bottom: 14px;
+      text-align: left;
+    }
+    .ad-visual-waves {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 32px;
+      padding: 4px;
+      background: rgba(115, 243, 239, 0.1);
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .ad-visual-waves span {
+      width: 4px;
+      height: 8px;
+      background: var(--cyan);
+      border-radius: 2px;
+      animation: wavePlay 1s infinite ease-in-out alternate;
+    }
+    .ad-visual-waves span:nth-child(2) { animation-delay: 0.2s; height: 18px; }
+    .ad-visual-waves span:nth-child(3) { animation-delay: 0.4s; height: 26px; }
+    .ad-visual-waves span:nth-child(4) { animation-delay: 0.1s; height: 14px; }
+    .ad-visual-waves span:nth-child(5) { animation-delay: 0.3s; height: 22px; }
+    @keyframes wavePlay {
+      0% { transform: scaleY(0.35); }
+      100% { transform: scaleY(1); }
+    }
+    .ad-sponsor-info h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+    .ad-sponsor-info p {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .ad-timer-bar {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .ad-timer-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #73f3ef, #a78bfa);
+      transition: width 0.1s linear;
+    }
+    .ad-timer-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .ad-modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .ad-watch-btn {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #73f3ef, #a78bfa);
+      color: #080914;
+      font-weight: 800;
+      font-size: 13px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 18px rgba(115, 243, 239, 0.4);
+      transition: all var(--transition);
+    }
+    .ad-watch-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(115, 243, 239, 0.6);
+    }
+    .ad-watch-btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+    .ad-cancel-btn {
+      padding: 12px 18px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .ad-cancel-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+    .ad-creator-support {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .ad-creator-support a {
+      color: var(--cyan);
+      text-decoration: underline;
+    }
+  </style>
+  <script src="3d-scene.js" defer></script>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Header -->
+    <header>
+      <a class="logo" href="#">FILE<span>2</span>FILE</a>
+      <nav aria-label="Main navigation">
+        <a href="#features">Features</a>
+        <a href="#formats">Formats</a>
+        <a href="index.html" class="back-link" title="JPMediaSaver is currently undergoing maintenance">
+          <span class="blinking-dot" style="background:#f59e0b; box-shadow:0 0 8px #f59e0b;"></span>
+          <span>🛠️ JPMediaSaver (Maintenance)</span>
+        </a>
+      </nav>
+    </header>
+
+    <!-- Hero with 3D Orbiting Gyroscope Rings -->
+    <section class="hero" style="position:relative; perspective:1000px;">
+      <div style="position:absolute; left:50%; top:50%; width:320px; height:320px; border-radius:50%; border:1px dashed rgba(115,243,239,.22); animation:orbitRing3D 20s linear infinite; pointer-events:none;"></div>
+      <div style="position:absolute; left:50%; top:50%; width:380px; height:380px; border-radius:50%; border:1px solid rgba(167,139,250,.18); animation:orbitRing3D 26s linear infinite reverse; pointer-events:none;"></div>
+      <div class="eyebrow">✦ 100% browser-side · zero uploads · private</div>
+      <h1>Convert <em>anything.</em><br>Right here.</h1>
+      <p>Images, PDFs, video, audio — transform files instantly in your browser. Nothing leaves your device.</p>
+      <!-- Quota / Ad Counter -->
+      <div style="margin-top: 18px;">
+        <div class="quota-pill" id="quotaPill">
+          <span class="quota-dot"></span>
+          <span id="quotaText"><strong>10</strong> free conversions left</span>
+          <button type="button" id="watchAdBonusBtn" class="quota-bonus-btn" title="Watch a quick ad to get +10 more conversions">+ Watch Ad (+10)</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mode selector -->
+    <div class="mode-bar" id="modeBar">
+      <button class="mode-btn active" data-mode="image">
+        <span class="mode-icon">🖼️</span> Images
+      </button>
+      <button class="mode-btn" data-mode="pdf">
+        <span class="mode-icon">📄</span> PDF Tools
+      </button>
+      <button class="mode-btn" data-mode="video">
+        <span class="mode-icon">🎬</span> Video
+      </button>
+      <button class="mode-btn" data-mode="audio">
+        <span class="mode-icon">🎵</span> Audio
+      </button>
+    </div>
+
+    <!-- Main converter card (3D Tilt & Holographic Prism) -->
+    <div class="lab-card tilt-3d prism-halo" data-tilt-max="5">
+      <!-- Dropzone (3D Parallax Pop) -->
+      <label class="dropzone layer-3d-front" id="dropzone" for="fileInput">
+        <span class="drop-icon" aria-hidden="true">↥</span>
+        <strong id="dropTitle">Drop images here</strong>
+        <small id="dropHint">or click to browse · PNG, JPG, WEBP, BMP, GIF, SVG, AVIF</small>
+      </label>
+      <input id="fileInput" type="file" multiple>
+
+      <!-- File list -->
+      <div class="file-list" id="fileList"></div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <select id="formatSelect" aria-label="Output format">
+          <!-- Populated by JS per mode -->
+        </select>
+        <button class="primary btn-3d layer-3d-front" id="convertBtn" disabled>
+          <span id="convertText">Convert</span> ↗
+        </button>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-area" id="progressArea">
+        <div class="progress-label">
+          <span id="progressLabel">Converting…</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <!-- Status message -->
+      <p class="status-msg" id="statusMsg" role="status">Select files and choose your output format.</p>
+
+      <!-- Result -->
+      <div class="result-area" id="resultArea">
+        <div class="result-card">
+          <span class="result-icon">✅</span>
+          <div class="result-info">
+            <strong id="resultTitle">Conversion complete!</strong>
+            <small id="resultMeta"></small>
+          </div>
+          <button class="result-dl" id="downloadResult">Download ↓</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <!-- Features (3D Interactive Cards) -->
+    <section class="features" id="features">
+      <h2>Why FILE<span style="color:var(--cyan)">2</span>FILE?</h2>
+      <div class="feat-grid">
+        <div class="feat-card tilt-3d" data-tilt-max="8">
+          <div class="feat-icon">🔒</div>
+          <h3>100% Private</h3>
+          <p>All conversions happen locally in your browser. No files are uploaded to any server, ever.</p>
+        </div>
+        <div class="feat-card tilt-3d" data-tilt-max="8">
+          <div class="feat-icon">⚡</div>
+          <h3>Instant Results</h3>
+          <p>No waiting for server round-trips. Files convert at native speed using WebAssembly and Canvas APIs.</p>
+        </div>
+        <div class="feat-card tilt-3d" data-tilt-max="8">
+          <div class="feat-icon">🎨</div>
+          <h3>Image Formats</h3>
+          <p>PNG, JPG, WEBP, BMP, GIF, AVIF, ICO — convert between any image format with quality control.</p>
+        </div>
+        <div class="feat-card tilt-3d" data-tilt-max="8">
+          <div class="feat-icon">📄</div>
+          <h3>PDF Toolkit</h3>
+          <p>Merge multiple PDFs, convert images to PDF, or split pages from existing documents.</p>
+        </div>
+        <div class="feat-card tilt-3d" data-tilt-max="8">
+          <div class="feat-icon">🎬</div>
+          <h3>Video Conversion</h3>
+          <p>Convert MP4, WebM, MOV, AVI and more using FFmpeg running directly in your browser.</p>
+        </div>
+        <div class="feat-card tilt-3d" data-tilt-max="8">
+          <div class="feat-icon">🎵</div>
+          <h3>Audio Extraction</h3>
+          <p>Extract MP3 audio from video files, convert between WAV, OGG, AAC, and FLAC formats.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Formats strip -->
+    <section class="formats-strip" id="formats">
+      <h3>Supported Format Conversions</h3>
+      <div class="fmt-list">
+        <span class="fmt-tag">PNG → JPG</span>
+        <span class="fmt-tag">JPG → PNG</span>
+        <span class="fmt-tag">PNG → WEBP</span>
+        <span class="fmt-tag">WEBP → PNG</span>
+        <span class="fmt-tag">BMP → JPG</span>
+        <span class="fmt-tag">GIF → PNG</span>
+        <span class="fmt-tag">SVG → PNG</span>
+        <span class="fmt-tag">Any → AVIF</span>
+        <span class="fmt-tag">Any → ICO</span>
+        <span class="fmt-tag">Images → PDF</span>
+        <span class="fmt-tag">Merge PDFs</span>
+        <span class="fmt-tag">Split PDF</span>
+        <span class="fmt-tag">MP4 → WebM</span>
+        <span class="fmt-tag">MOV → MP4</span>
+        <span class="fmt-tag">AVI → MP4</span>
+        <span class="fmt-tag">MP4 → GIF</span>
+        <span class="fmt-tag">MP4 → MP3</span>
+        <span class="fmt-tag">Video → WAV</span>
+        <span class="fmt-tag">WAV → MP3</span>
+        <span class="fmt-tag">OGG → MP3</span>
+        <span class="fmt-tag">MP3 → WAV</span>
+        <span class="fmt-tag">Any → AAC</span>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      File2File & JPMediaSaver are products of <strong>Jayaprabhu Creations (jpcreations)</strong> · All processing happens locally in your browser.
+    </footer>
+  </div>
+
+  <!-- Ad Reward Modal (for 10+ conversions) -->
+  <div class="ad-modal-overlay" id="adModalOverlay" role="dialog" aria-modal="true" aria-labelledby="adModalTitle">
+    <div class="ad-modal-card">
+      <button type="button" class="ad-modal-close" id="adModalCloseBtn" aria-label="Close dialog">✕</button>
+      <div class="ad-modal-icon">🎬</div>
+      <h3 id="adModalTitle">Unlock More Conversions</h3>
+      <p class="ad-modal-sub" id="adModalSub">
+        You have reached the free limit (or converting a batch of 10+ files). Watch a brief 5-second sponsor message to instantly unlock <strong>+10 more conversions</strong> for free!
+      </p>
+
+      <!-- Simulated Sponsor Ad Screen -->
+      <div class="ad-screen" id="adScreen">
+        <div class="ad-badge">SPONSOR SPOTLIGHT</div>
+        <div class="ad-video-mockup">
+          <div class="ad-visual-waves">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="ad-sponsor-info">
+            <h4>JPMediaSaver Pro</h4>
+            <p>Fastest Universal Downloader for Reels, Shorts, TikTok & Audio</p>
+          </div>
+        </div>
+        <div class="ad-timer-bar">
+          <div class="ad-timer-fill" id="adTimerFill"></div>
+        </div>
+        <div class="ad-timer-label" id="adTimerLabel">Watch 5 seconds to claim +10 conversions</div>
+      </div>
+
+      <div class="ad-modal-actions">
+        <button type="button" class="ad-watch-btn" id="startAdWatchBtn">
+          <span id="adWatchBtnIcon">▶</span> <span id="adWatchBtnText">Watch 5s Ad to Unlock (+10)</span>
+        </button>
+        <button type="button" class="ad-cancel-btn" id="adCancelBtn">Cancel</button>
+      </div>
+
+      <div class="ad-creator-support">
+        Want unlimited conversions with zero ads? <a href="index.html" target="_blank">Support Creator on JPMediaSaver →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- FFmpeg loading overlay -->
+  <div class="ffmpeg-loading" id="ffmpegOverlay">
+    <div class="spinner"></div>
+    <p id="ffmpegLoadText">Loading FFmpeg engine…</p>
+    <span class="subtext">~31 MB one-time download · runs entirely in your browser</span>
+  </div>
+
+  <script type="module">
+    // ──────────────────────────────────────────────────────────────
+    //  File2File — Full client-side file converter
+    // ──────────────────────────────────────────────────────────────
+
+    // ── State ──
+    let currentMode = 'image';
+    let selectedFiles = [];
+    let ffmpegInstance = null;
+    let ffmpegLoaded = false;
+    let resultBlob = null;
+    let resultFileName = '';
+
+    // ── DOM refs ──
+    const dropzone       = document.getElementById('dropzone');
+    const fileInput       = document.getElementById('fileInput');
+    const fileList        = document.getElementById('fileList');
+    const formatSelect    = document.getElementById('formatSelect');
+    const convertBtn      = document.getElementById('convertBtn');
+    const convertText     = document.getElementById('convertText');
+    const progressArea    = document.getElementById('progressArea');
+    const progressLabel   = document.getElementById('progressLabel');
+    const progressPercent = document.getElementById('progressPercent');
+    const progressFill    = document.getElementById('progressFill');
+    const statusMsg       = document.getElementById('statusMsg');
+    const resultArea      = document.getElementById('resultArea');
+    const resultTitle     = document.getElementById('resultTitle');
+    const resultMeta      = document.getElementById('resultMeta');
+    const downloadResult  = document.getElementById('downloadResult');
+    const dropTitle       = document.getElementById('dropTitle');
+    const dropHint        = document.getElementById('dropHint');
+    const modeBar         = document.getElementById('modeBar');
+    const ffmpegOverlay   = document.getElementById('ffmpegOverlay');
+    const ffmpegLoadText  = document.getElementById('ffmpegLoadText');
+
+    // ── Quota & Ad Modal DOM refs ──
+    const quotaPill        = document.getElementById('quotaPill');
+    const quotaText        = document.getElementById('quotaText');
+    const watchAdBonusBtn   = document.getElementById('watchAdBonusBtn');
+    const adModalOverlay   = document.getElementById('adModalOverlay');
+    const adModalCloseBtn  = document.getElementById('adModalCloseBtn');
+    const adCancelBtn      = document.getElementById('adCancelBtn');
+    const startAdWatchBtn  = document.getElementById('startAdWatchBtn');
+    const adWatchBtnText   = document.getElementById('adWatchBtnText');
+    const adWatchBtnIcon   = document.getElementById('adWatchBtnIcon');
+    const adTimerFill      = document.getElementById('adTimerFill');
+    const adTimerLabel     = document.getElementById('adTimerLabel');
+    const adModalSub       = document.getElementById('adModalSub');
+
+    // ── Mode configuration ──
+    const modeConfig = {
+      image: {
+        title: 'Drop images here',
+        hint: 'or click to browse · PNG, JPG, WEBP, BMP, GIF, SVG, AVIF',
+        accept: 'image/*,.svg',
+        multiple: true,
+        formats: [
+          { value: 'png',  label: 'Convert to PNG' },
+          { value: 'jpg',  label: 'Convert to JPG' },
+          { value: 'webp', label: 'Convert to WEBP' },
+          { value: 'bmp',  label: 'Convert to BMP' },
+          { value: 'gif',  label: 'Convert to GIF' },
+          { value: 'avif', label: 'Convert to AVIF' },
+          { value: 'ico',  label: 'Convert to ICO (64×64)' },
+        ]
+      },
+      pdf: {
+        title: 'Drop images or PDFs here',
+        hint: 'or click to browse · Images (PNG/JPG/WEBP) or PDF files',
+        accept: 'image/*,.pdf,application/pdf',
+        multiple: true,
+        formats: [
+          { value: 'images-to-pdf', label: 'Images → PDF' },
+          { value: 'merge-pdf',     label: 'Merge PDFs into one' },
+          { value: 'split-pdf',     label: 'Split PDF (1 page per file)' },
+        ]
+      },
+      video: {
+        title: 'Drop a video file here',
+        hint: 'or click to browse · MP4, WebM, MOV, AVI, MKV',
+        accept: 'video/*,.mp4,.webm,.mov,.avi,.mkv',
+        multiple: false,
+        formats: [
+          { value: 'mp4',  label: 'Convert to MP4' },
+          { value: 'webm', label: 'Convert to WebM' },
+          { value: 'avi',  label: 'Convert to AVI' },
+          { value: 'gif',  label: 'Convert to GIF (first 10s)' },
+        ]
+      },
+      audio: {
+        title: 'Drop a video or audio file here',
+        hint: 'or click to browse · MP4, MP3, WAV, OGG, FLAC, AAC, WebM',
+        accept: 'audio/*,video/*,.mp4,.mp3,.wav,.ogg,.flac,.aac,.webm,.m4a',
+        multiple: false,
+        formats: [
+          { value: 'mp3',  label: 'Convert to MP3' },
+          { value: 'wav',  label: 'Convert to WAV' },
+          { value: 'ogg',  label: 'Convert to OGG' },
+          { value: 'aac',  label: 'Convert to AAC' },
+          { value: 'flac', label: 'Convert to FLAC' },
+        ]
+      }
+    };
+
+    // ──────────────────────────────────────────────
+    //  Utilities
+    // ──────────────────────────────────────────────
+    function fmtSize(bytes) {
+      if (!bytes) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let i = 0;
+      while (bytes >= 1024 && i < units.length - 1) { bytes /= 1024; i++; }
+      return bytes.toFixed(1) + ' ' + units[i];
+    }
+
+    function baseName(name) {
+      return name.replace(/\.[^.]+$/, '');
+    }
+
+    function fileIcon(type) {
+      if (type.startsWith('image/')) return '🖼️';
+      if (type === 'application/pdf') return '📄';
+      if (type.startsWith('video/')) return '🎬';
+      if (type.startsWith('audio/')) return '🎵';
+      return '📁';
+    }
+
+    function setStatus(text, type = '') {
+      statusMsg.textContent = text;
+      statusMsg.className = 'status-msg' + (type ? ' ' + type : '');
+    }
+
+    function showProgress(show) {
+      progressArea.classList.toggle('visible', show);
+    }
+
+    function setProgress(pct, label) {
+      progressFill.style.width = pct + '%';
+      progressPercent.textContent = Math.round(pct) + '%';
+      if (label) progressLabel.textContent = label;
+    }
+
+    function showResult(name, size) {
+      resultTitle.textContent = 'Conversion complete!';
+      resultMeta.textContent = `${name} · ${fmtSize(size)}`;
+      resultArea.classList.add('visible');
+    }
+
+    function hideResult() {
+      resultArea.classList.remove('visible');
+      resultBlob = null;
+      resultFileName = '';
+    }
+
+    // ──────────────────────────────────────────────
+    //  Mode switching
+    // ──────────────────────────────────────────────
+    function switchMode(mode) {
+      currentMode = mode;
+      const cfg = modeConfig[mode];
+
+      // Tab highlight
+      modeBar.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+
+      // Dropzone text
+      dropTitle.textContent = cfg.title;
+      dropHint.textContent = cfg.hint;
+      fileInput.accept = cfg.accept;
+      fileInput.multiple = cfg.multiple;
+
+      // Format options
+      formatSelect.innerHTML = '';
+      cfg.formats.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.value;
+        opt.textContent = f.label;
+        formatSelect.appendChild(opt);
+      });
+
+      // Reset
+      selectedFiles = [];
+      fileInput.value = '';
+      renderFileList();
+      convertBtn.disabled = true;
+      hideResult();
+      showProgress(false);
+      setStatus('Select files and choose your output format.');
+    }
+
+    modeBar.addEventListener('click', e => {
+      const btn = e.target.closest('.mode-btn');
+      if (btn) switchMode(btn.dataset.mode);
+    });
+
+    // ──────────────────────────────────────────────
+    //  File handling
+    // ──────────────────────────────────────────────
+    function addFiles(files) {
+      const cfg = modeConfig[currentMode];
+      if (!cfg.multiple) {
+        selectedFiles = [files[0]];
+      } else {
+        for (const f of files) {
+          if (!selectedFiles.some(sf => sf.name === f.name && sf.size === f.size)) {
+            selectedFiles.push(f);
+          }
+        }
+      }
+      renderFileList();
+      convertBtn.disabled = selectedFiles.length === 0;
+      hideResult();
+      showProgress(false);
+      if (selectedFiles.length > 0) {
+        setStatus(`${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} ready. Choose format and convert.`);
+      }
+    }
+
+    function removeFile(idx) {
+      selectedFiles.splice(idx, 1);
+      renderFileList();
+      convertBtn.disabled = selectedFiles.length === 0;
+      if (selectedFiles.length === 0) {
+        setStatus('Select files and choose your output format.');
+      }
+    }
+
+    function renderFileList() {
+      fileList.innerHTML = '';
+      selectedFiles.forEach((f, i) => {
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        div.innerHTML = `
+          <span class="fi-icon">${fileIcon(f.type)}</span>
+          <span class="fi-name" title="${f.name}">${f.name}</span>
+          <span class="fi-size">${fmtSize(f.size)}</span>
+          <button class="fi-remove" title="Remove" data-idx="${i}">✕</button>
+        `;
+        fileList.appendChild(div);
+      });
+
+      fileList.querySelectorAll('.fi-remove').forEach(btn => {
+        btn.addEventListener('click', () => removeFile(+btn.dataset.idx));
+      });
+    }
+
+    // Drag & drop
+    ['dragenter', 'dragover'].forEach(ev => {
+      dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('dragging'); });
+    });
+    ['dragleave', 'drop'].forEach(ev => {
+      dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('dragging'); });
+    });
+    dropzone.addEventListener('drop', e => addFiles([...e.dataTransfer.files]));
+    fileInput.addEventListener('change', () => { addFiles([...fileInput.files]); fileInput.value = ''; });
+
+    // ──────────────────────────────────────────────
+    //  FFmpeg loader (lazy, only when needed)
+    // ──────────────────────────────────────────────
+    async function loadFFmpeg() {
+      if (ffmpegLoaded && ffmpegInstance) return ffmpegInstance;
+
+      ffmpegOverlay.classList.add('visible');
+      ffmpegLoadText.textContent = 'Loading FFmpeg engine…';
+
+      try {
+        const { FFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/+esm');
+        const { toBlobURL, fetchFile: ffFetchFile } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/+esm');
+
+        const ffmpeg = new FFmpeg();
+        const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+
+        ffmpeg.on('progress', ({ progress }) => {
+          const pct = Math.min(Math.round(progress * 100), 100);
+          setProgress(pct, 'Processing…');
+        });
+
+        ffmpeg.on('log', ({ message }) => {
+          console.log('[FFmpeg]', message);
+        });
+
+        ffmpegLoadText.textContent = 'Downloading WASM core (~31 MB)…';
+
+        // Provide same-origin worker script to bypass cross-origin browser restriction
+        let workerLocation = window.location.origin + '/vendor/ffmpeg/worker.js';
+        let classWorkerURL = workerLocation;
+
+        try {
+          const checkWorker = await fetch(workerLocation, { method: 'HEAD' });
+          if (!checkWorker.ok) throw new Error('Local worker not found');
+        } catch (_) {
+          // Fallback: build an in-memory blob URL worker if local file is unreachable
+          try {
+            const rawWorker = await (await fetch('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js')).text();
+            const patched = rawWorker
+              .replace('from "./const.js"', 'from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/const.js"')
+              .replace('from "./errors.js"', 'from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/errors.js"');
+            classWorkerURL = URL.createObjectURL(new Blob([patched], { type: 'text/javascript' }));
+          } catch (blobErr) {
+            console.warn('Could not construct blob worker:', blobErr);
+          }
+        }
+
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          ...(classWorkerURL ? { classWorkerURL } : {})
+        });
+
+        ffmpegInstance = ffmpeg;
+        ffmpegLoaded = true;
+        window._ffFetchFile = ffFetchFile;
+
+        ffmpegOverlay.classList.remove('visible');
+        return ffmpeg;
+      } catch (err) {
+        ffmpegOverlay.classList.remove('visible');
+        throw new Error('Failed to load FFmpeg: ' + err.message);
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    //  IMAGE CONVERSION (Canvas API)
+    // ──────────────────────────────────────────────
+    async function convertImage(file, outputFormat) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let w = img.naturalWidth;
+            let h = img.naturalHeight;
+
+            // ICO: resize to 64x64
+            if (outputFormat === 'ico') {
+              w = 64; h = 64;
+            }
+
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+
+            // For JPG/BMP: white background (no alpha)
+            if (['jpg', 'bmp', 'ico'].includes(outputFormat)) {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, w, h);
+            }
+
+            ctx.drawImage(img, 0, 0, w, h);
+
+            const mimeMap = {
+              png: 'image/png',
+              jpg: 'image/jpeg',
+              webp: 'image/webp',
+              bmp: 'image/bmp',
+              gif: 'image/gif',
+              avif: 'image/avif',
+              ico: 'image/png', // ICO wrapping uses PNG internally
+            };
+
+            const quality = ['jpg', 'webp', 'avif'].includes(outputFormat) ? 0.92 : undefined;
+            canvas.toBlob(
+              blob => {
+                if (blob) {
+                  // For ICO, wrap the PNG blob in ICO container
+                  if (outputFormat === 'ico') {
+                    wrapAsICO(blob).then(resolve).catch(reject);
+                  } else {
+                    resolve(blob);
+                  }
+                } else {
+                  reject(new Error('Canvas conversion failed. Format may not be supported by your browser.'));
+                }
+              },
+              mimeMap[outputFormat] || 'image/png',
+              quality
+            );
+          };
+
+          img.onerror = () => reject(new Error('Failed to decode image: ' + file.name));
+
+          // SVG needs special handling
+          if (file.type === 'image/svg+xml' || file.name.endsWith('.svg')) {
+            img.src = reader.result;
+          } else {
+            img.src = reader.result;
+          }
+        };
+
+        reader.onerror = () => reject(new Error('Failed to read file.'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function wrapAsICO(pngBlob) {
+      // Simple ICO container: single 64x64 PNG entry
+      const pngData = new Uint8Array(await pngBlob.arrayBuffer());
+      const size = 64;
+      const headerSize = 6;
+      const entrySize = 16;
+      const totalSize = headerSize + entrySize + pngData.length;
+
+      const buffer = new ArrayBuffer(totalSize);
+      const view = new DataView(buffer);
+
+      // ICONDIR
+      view.setUint16(0, 0, true);     // reserved
+      view.setUint16(2, 1, true);     // type: 1 = ICO
+      view.setUint16(4, 1, true);     // count: 1 image
+
+      // ICONDIRENTRY
+      const offset = headerSize;
+      view.setUint8(offset, size);       // width
+      view.setUint8(offset + 1, size);   // height
+      view.setUint8(offset + 2, 0);      // color palette
+      view.setUint8(offset + 3, 0);      // reserved
+      view.setUint16(offset + 4, 1, true);  // color planes
+      view.setUint16(offset + 6, 32, true); // bits per pixel
+      view.setUint32(offset + 8, pngData.length, true);   // size of PNG data
+      view.setUint32(offset + 12, headerSize + entrySize, true); // offset to PNG data
+
+      // PNG data
+      const icoBytes = new Uint8Array(buffer);
+      icoBytes.set(pngData, headerSize + entrySize);
+
+      return new Blob([icoBytes], { type: 'image/x-icon' });
+    }
+
+    async function runImageConversion() {
+      const fmt = formatSelect.value;
+      const total = selectedFiles.length;
+
+      if (total === 1) {
+        // Single file → single output
+        setProgress(0, 'Converting…');
+        showProgress(true);
+
+        const blob = await convertImage(selectedFiles[0], fmt);
+        setProgress(100, 'Done!');
+
+        resultBlob = blob;
+        resultFileName = baseName(selectedFiles[0].name) + '.' + fmt;
+        showResult(resultFileName, blob.size);
+        setStatus(`Converted to ${fmt.toUpperCase()} successfully!`, 'success');
+      } else {
+        // Multiple files → zip them
+        setProgress(0, `Converting 0/${total}…`);
+        showProgress(true);
+
+        // We'll create a zip using JSZip-like approach with manual ZIP creation
+        const blobs = [];
+        for (let i = 0; i < total; i++) {
+          setProgress((i / total) * 100, `Converting ${i + 1}/${total}…`);
+          const blob = await convertImage(selectedFiles[i], fmt);
+          blobs.push({ name: baseName(selectedFiles[i].name) + '.' + fmt, blob });
+        }
+
+        setProgress(90, 'Packaging…');
+
+        // Create a simple zip
+        const zipBlob = await createZip(blobs);
+        setProgress(100, 'Done!');
+
+        resultBlob = zipBlob;
+        resultFileName = `converted_${fmt}_${total}files.zip`;
+        showResult(resultFileName, zipBlob.size);
+        setStatus(`Converted ${total} files to ${fmt.toUpperCase()}!`, 'success');
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    //  Simple ZIP creator (no dependencies)
+    // ──────────────────────────────────────────────
+    async function createZip(entries) {
+      // entries: [{name, blob}]
+      const localParts = [];
+      const centralDir = [];
+      let offset = 0;
+
+      for (const entry of entries) {
+        const data = new Uint8Array(await entry.blob.arrayBuffer());
+        const nameBytes = new TextEncoder().encode(entry.name);
+
+        // Local file header
+        const local = new ArrayBuffer(30 + nameBytes.length + data.length);
+        const lv = new DataView(local);
+        lv.setUint32(0, 0x04034b50, true);    // signature
+        lv.setUint16(4, 20, true);             // version needed
+        lv.setUint16(6, 0, true);              // flags
+        lv.setUint16(8, 0, true);              // compression: store
+        lv.setUint16(10, 0, true);             // mod time
+        lv.setUint16(12, 0, true);             // mod date
+        lv.setUint32(14, 0, true);             // crc32 (0 for simplicity)
+        lv.setUint32(18, data.length, true);   // compressed size
+        lv.setUint32(22, data.length, true);   // uncompressed size
+        lv.setUint16(26, nameBytes.length, true);
+        lv.setUint16(28, 0, true);             // extra length
+
+        new Uint8Array(local).set(nameBytes, 30);
+        new Uint8Array(local).set(data, 30 + nameBytes.length);
+
+        localParts.push(new Uint8Array(local));
+
+        // Central directory entry
+        const cde = new ArrayBuffer(46 + nameBytes.length);
+        const cv = new DataView(cde);
+        cv.setUint32(0, 0x02014b50, true);     // signature
+        cv.setUint16(4, 20, true);             // version made by
+        cv.setUint16(6, 20, true);             // version needed
+        cv.setUint16(8, 0, true);              // flags
+        cv.setUint16(10, 0, true);             // compression
+        cv.setUint16(12, 0, true);
+        cv.setUint16(14, 0, true);
+        cv.setUint32(16, 0, true);             // crc32
+        cv.setUint32(20, data.length, true);
+        cv.setUint32(24, data.length, true);
+        cv.setUint16(28, nameBytes.length, true);
+        cv.setUint16(30, 0, true);             // extra
+        cv.setUint16(32, 0, true);             // comment
+        cv.setUint16(34, 0, true);             // disk
+        cv.setUint16(36, 0, true);             // internal attr
+        cv.setUint32(38, 0, true);             // external attr
+        cv.setUint32(42, offset, true);        // local header offset
+
+        new Uint8Array(cde).set(nameBytes, 46);
+        centralDir.push(new Uint8Array(cde));
+
+        offset += 30 + nameBytes.length + data.length;
+      }
+
+      const cdOffset = offset;
+      let cdSize = 0;
+      centralDir.forEach(cd => cdSize += cd.length);
+
+      // End of central directory
+      const eocd = new ArrayBuffer(22);
+      const ev = new DataView(eocd);
+      ev.setUint32(0, 0x06054b50, true);
+      ev.setUint16(4, 0, true);
+      ev.setUint16(6, 0, true);
+      ev.setUint16(8, entries.length, true);
+      ev.setUint16(10, entries.length, true);
+      ev.setUint32(12, cdSize, true);
+      ev.setUint32(16, cdOffset, true);
+      ev.setUint16(20, 0, true);
+
+      return new Blob([...localParts, ...centralDir, new Uint8Array(eocd)], { type: 'application/zip' });
+    }
+
+    // ──────────────────────────────────────────────
+    //  PDF TOOLS (pdf-lib)
+    // ──────────────────────────────────────────────
+    async function runPDFConversion() {
+      const operation = formatSelect.value;
+
+      if (operation === 'images-to-pdf') {
+        await imagesToPDF();
+      } else if (operation === 'merge-pdf') {
+        await mergePDFs();
+      } else if (operation === 'split-pdf') {
+        await splitPDF();
+      }
+    }
+
+    async function imagesToPDF() {
+      const { PDFDocument } = PDFLib;
+      const pdfDoc = await PDFDocument.create();
+      const total = selectedFiles.length;
+
+      showProgress(true);
+
+      for (let i = 0; i < total; i++) {
+        setProgress((i / total) * 90, `Adding image ${i + 1}/${total}…`);
+        const file = selectedFiles[i];
+        const bytes = new Uint8Array(await file.arrayBuffer());
+
+        let image;
+        try {
+          if (file.type === 'image/png') {
+            image = await pdfDoc.embedPng(bytes);
+          } else if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
+            image = await pdfDoc.embedJpg(bytes);
+          } else {
+            // Convert other formats to PNG first via canvas
+            const pngBlob = await convertImage(file, 'png');
+            const pngBytes = new Uint8Array(await pngBlob.arrayBuffer());
+            image = await pdfDoc.embedPng(pngBytes);
+          }
+        } catch (err) {
+          // Fallback: convert to JPG
+          const jpgBlob = await convertImage(file, 'jpg');
+          const jpgBytes = new Uint8Array(await jpgBlob.arrayBuffer());
+          image = await pdfDoc.embedJpg(jpgBytes);
+        }
+
+        const page = pdfDoc.addPage([image.width, image.height]);
+        page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+      }
+
+      setProgress(95, 'Generating PDF…');
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+
+      setProgress(100, 'Done!');
+      resultBlob = blob;
+      resultFileName = `images_${total}pages.pdf`;
+      showResult(resultFileName, blob.size);
+      setStatus(`Created PDF with ${total} page${total > 1 ? 's' : ''}!`, 'success');
+    }
+
+    async function mergePDFs() {
+      const { PDFDocument } = PDFLib;
+      const mergedDoc = await PDFDocument.create();
+      const total = selectedFiles.length;
+
+      if (total < 2) {
+        setStatus('Please select at least 2 PDF files to merge.', 'error');
+        return;
+      }
+
+      showProgress(true);
+      let totalPages = 0;
+
+      for (let i = 0; i < total; i++) {
+        setProgress((i / total) * 90, `Merging PDF ${i + 1}/${total}…`);
+        const bytes = new Uint8Array(await selectedFiles[i].arrayBuffer());
+
+        try {
+          const doc = await PDFDocument.load(bytes);
+          const pages = await mergedDoc.copyPages(doc, doc.getPageIndices());
+          pages.forEach(page => mergedDoc.addPage(page));
+          totalPages += doc.getPageCount();
+        } catch (err) {
+          setStatus(`Error reading "${selectedFiles[i].name}": ${err.message}`, 'error');
+          showProgress(false);
+          return;
+        }
+      }
+
+      setProgress(95, 'Saving merged PDF…');
+      const pdfBytes = await mergedDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+
+      setProgress(100, 'Done!');
+      resultBlob = blob;
+      resultFileName = `merged_${total}files_${totalPages}pages.pdf`;
+      showResult(resultFileName, blob.size);
+      setStatus(`Merged ${total} PDFs → ${totalPages} total pages!`, 'success');
+    }
+
+    async function splitPDF() {
+      if (selectedFiles.length !== 1) {
+        setStatus('Please select exactly 1 PDF file to split.', 'error');
+        return;
+      }
+
+      const { PDFDocument } = PDFLib;
+      const bytes = new Uint8Array(await selectedFiles[0].arrayBuffer());
+      let sourceDoc;
+
+      try {
+        sourceDoc = await PDFDocument.load(bytes);
+      } catch (err) {
+        setStatus(`Error reading PDF: ${err.message}`, 'error');
+        return;
+      }
+
+      const pageCount = sourceDoc.getPageCount();
+      if (pageCount < 2) {
+        setStatus('This PDF has only 1 page — nothing to split.', 'error');
+        return;
+      }
+
+      showProgress(true);
+      const entries = [];
+
+      for (let i = 0; i < pageCount; i++) {
+        setProgress((i / pageCount) * 90, `Splitting page ${i + 1}/${pageCount}…`);
+        const newDoc = await PDFDocument.create();
+        const [page] = await newDoc.copyPages(sourceDoc, [i]);
+        newDoc.addPage(page);
+        const newBytes = await newDoc.save();
+        const blob = new Blob([newBytes], { type: 'application/pdf' });
+        entries.push({
+          name: `${baseName(selectedFiles[0].name)}_page${i + 1}.pdf`,
+          blob
+        });
+      }
+
+      setProgress(95, 'Packaging…');
+      const zipBlob = await createZip(entries);
+
+      setProgress(100, 'Done!');
+      resultBlob = zipBlob;
+      resultFileName = `${baseName(selectedFiles[0].name)}_split_${pageCount}pages.zip`;
+      showResult(resultFileName, zipBlob.size);
+      setStatus(`Split PDF into ${pageCount} individual pages!`, 'success');
+    }
+
+    // ──────────────────────────────────────────────
+    // ──────────────────────────────────────────────
+    //  VIDEO CONVERSION (Native FFmpeg + WASM Fallback)
+    // ──────────────────────────────────────────────
+    async function runVideoConversion() {
+      const fmt = formatSelect.value;
+      const file = selectedFiles[0];
+
+      showProgress(true);
+      setProgress(15, 'Preparing video conversion…');
+
+      // 1. Try high-speed backend FFmpeg conversion
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('format', fmt);
+
+        setProgress(35, 'Converting video via FFmpeg engine…');
+        const res = await fetch('/api/convert', { method: 'POST', body: formData });
+        if (res.ok) {
+          setProgress(90, 'Finalizing video output…');
+          const blob = await res.blob();
+          setProgress(100, 'Done!');
+          resultBlob = blob;
+          resultFileName = baseName(file.name) + '.' + fmt;
+          showResult(resultFileName, blob.size);
+          setStatus(`Video converted to ${fmt.toUpperCase()} successfully!`, 'success');
+          return;
+        }
+      } catch (backendErr) {
+        console.warn('Backend conversion unavailable, switching to browser engine:', backendErr);
+      }
+
+      // 2. Fallback: Browser WebAssembly FFmpeg
+      setProgress(20, 'Loading in-browser engine…');
+      const ffmpeg = await loadFFmpeg();
+      const fetchFile = window._ffFetchFile;
+
+      setProgress(40, 'Reading file…');
+      const inputName = 'input' + getExtension(file.name);
+      await ffmpeg.writeFile(inputName, await fetchFile(file));
+
+      const outputName = `output.${fmt}`;
+      let args;
+
+      switch (fmt) {
+        case 'mp4':
+          args = ['-i', inputName, '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', outputName];
+          break;
+        case 'webm':
+          args = ['-i', inputName, '-c:v', 'libvpx', '-crf', '30', '-b:v', '1M', '-c:a', 'libvorbis', outputName];
+          break;
+        case 'avi':
+          args = ['-i', inputName, '-c:v', 'mpeg4', '-q:v', '6', '-c:a', 'mp3', '-b:a', '128k', outputName];
+          break;
+        case 'gif':
+          // GIF: first 10 seconds, 320px width, 12fps
+          args = ['-i', inputName, '-t', '10', '-vf', 'fps=12,scale=320:-1:flags=lanczos', '-f', 'gif', outputName];
+          break;
+        default:
+          args = ['-i', inputName, outputName];
+      }
+
+      setProgress(50, 'Processing video…');
+
+      try {
+        await ffmpeg.exec(args);
+        const data = await ffmpeg.readFile(outputName);
+        const mimeTypes = { mp4: 'video/mp4', webm: 'video/webm', avi: 'video/x-msvideo', gif: 'image/gif' };
+        const blob = new Blob([data.buffer], { type: mimeTypes[fmt] || 'application/octet-stream' });
+
+        // Cleanup
+        try { await ffmpeg.deleteFile(inputName); } catch(_) {}
+        try { await ffmpeg.deleteFile(outputName); } catch(_) {}
+
+        setProgress(100, 'Done!');
+        resultBlob = blob;
+        resultFileName = baseName(file.name) + '.' + fmt;
+        showResult(resultFileName, blob.size);
+        setStatus(`Video converted to ${fmt.toUpperCase()} successfully!`, 'success');
+      } catch (err) {
+        setStatus('Video conversion failed: ' + err.message, 'error');
+        showProgress(false);
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    //  AUDIO CONVERSION (Native FFmpeg + WASM Fallback)
+    // ──────────────────────────────────────────────
+    async function runAudioConversion() {
+      const fmt = formatSelect.value;
+      const file = selectedFiles[0];
+
+      showProgress(true);
+      setProgress(15, 'Preparing audio extraction…');
+
+      // 1. Try high-speed backend FFmpeg conversion
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('format', fmt);
+
+        setProgress(35, 'Converting audio via FFmpeg engine…');
+        const res = await fetch('/api/convert', { method: 'POST', body: formData });
+        if (res.ok) {
+          setProgress(90, 'Finalizing audio output…');
+          const blob = await res.blob();
+          setProgress(100, 'Done!');
+          resultBlob = blob;
+          resultFileName = baseName(file.name) + '.' + fmt;
+          showResult(resultFileName, blob.size);
+          setStatus(`Audio converted to ${fmt.toUpperCase()} successfully!`, 'success');
+          return;
+        }
+      } catch (backendErr) {
+        console.warn('Backend conversion unavailable, switching to browser engine:', backendErr);
+      }
+
+      // 2. Fallback: Browser WebAssembly FFmpeg
+      setProgress(20, 'Loading in-browser engine…');
+      const ffmpeg = await loadFFmpeg();
+      const fetchFile = window._ffFetchFile;
+
+      setProgress(40, 'Reading file…');
+      const inputName = 'input' + getExtension(file.name);
+      await ffmpeg.writeFile(inputName, await fetchFile(file));
+
+      const outputName = `output.${fmt}`;
+      let args;
+
+      switch (fmt) {
+        case 'mp3':
+          args = ['-i', inputName, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-ar', '44100', '-ac', '2', outputName];
+          break;
+        case 'wav':
+          args = ['-i', inputName, '-vn', '-acodec', 'pcm_s16le', '-ar', '44100', '-ac', '2', outputName];
+          break;
+        case 'ogg':
+          args = ['-i', inputName, '-vn', '-acodec', 'libvorbis', '-q:a', '6', outputName];
+          break;
+        case 'aac':
+          args = ['-i', inputName, '-vn', '-acodec', 'aac', '-b:a', '192k', outputName];
+          break;
+        case 'flac':
+          args = ['-i', inputName, '-vn', '-acodec', 'flac', outputName];
+          break;
+        default:
+          args = ['-i', inputName, '-vn', outputName];
+      }
+
+      setProgress(50, 'Extracting & converting audio…');
+
+      try {
+        await ffmpeg.exec(args);
+        const data = await ffmpeg.readFile(outputName);
+        const mimeTypes = { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', aac: 'audio/aac', flac: 'audio/flac' };
+        const blob = new Blob([data.buffer], { type: mimeTypes[fmt] || 'application/octet-stream' });
+
+        try { await ffmpeg.deleteFile(inputName); } catch(_) {}
+        try { await ffmpeg.deleteFile(outputName); } catch(_) {}
+
+        setProgress(100, 'Done!');
+        resultBlob = blob;
+        resultFileName = baseName(file.name) + '.' + fmt;
+        showResult(resultFileName, blob.size);
+        setStatus(`Audio converted to ${fmt.toUpperCase()} successfully!`, 'success');
+      } catch (err) {
+        setStatus('Audio conversion failed: ' + err.message, 'error');
+        showProgress(false);
+      }
+    }
+
+    function getExtension(filename) {
+      const match = filename.match(/\.[^.]+$/);
+      return match ? match[0].toLowerCase() : '';
+    }
+
+    // ──────────────────────────────────────────────
+    //  Quota & Ad Monetization System (10 Free, 10+ requires Ad)
+    // ──────────────────────────────────────────────
+    const FREE_LIMIT = 10;
+    let pendingConversionAction = null;
+    let isWatchingAd = false;
+
+    function getConversionsUsed() {
+      return parseInt(localStorage.getItem('f2f_conversions_used') || '0', 10);
+    }
+
+    function setConversionsUsed(val) {
+      localStorage.setItem('f2f_conversions_used', Math.max(0, val).toString());
+    }
+
+    function getBonusCredits() {
+      return parseInt(localStorage.getItem('f2f_bonus_credits') || '0', 10);
+    }
+
+    function addBonusCredits(amt) {
+      const cur = getBonusCredits();
+      localStorage.setItem('f2f_bonus_credits', (cur + amt).toString());
+    }
+
+    function getRemainingConversions() {
+      const totalAllowed = FREE_LIMIT + getBonusCredits();
+      const used = getConversionsUsed();
+      return Math.max(0, totalAllowed - used);
+    }
+
+    function updateQuotaUI() {
+      const rem = getRemainingConversions();
+      if (quotaText) {
+        quotaText.innerHTML = `<strong>${rem}</strong> free conversion${rem === 1 ? '' : 's'} left`;
+      }
+      if (quotaPill) {
+        if (rem === 0) {
+          quotaPill.style.borderColor = 'rgba(251, 113, 133, 0.55)';
+          quotaPill.style.boxShadow = '0 0 16px rgba(251, 113, 133, 0.25)';
+        } else {
+          quotaPill.style.borderColor = 'rgba(115, 243, 239, 0.28)';
+          quotaPill.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.35)';
+        }
+      }
+    }
+
+    function openAdModal(reason = '') {
+      if (reason && adModalSub) {
+        adModalSub.innerHTML = reason;
+      } else if (adModalSub) {
+        adModalSub.innerHTML = 'You have reached the free limit (or converting a batch of 10+ files). Watch a brief 5-second sponsor message to instantly unlock <strong>+10 more conversions</strong> for free!';
+      }
+      resetAdScreen();
+      adModalOverlay.classList.add('visible');
+    }
+
+    function closeAdModal() {
+      if (isWatchingAd) return;
+      adModalOverlay.classList.remove('visible');
+      pendingConversionAction = null;
+    }
+
+    function resetAdScreen() {
+      isWatchingAd = false;
+      adTimerFill.style.width = '0%';
+      adTimerLabel.textContent = 'Watch 5 seconds to claim +10 conversions';
+      startAdWatchBtn.disabled = false;
+      adWatchBtnText.textContent = 'Watch 5s Ad to Unlock (+10)';
+      adWatchBtnIcon.textContent = '▶';
+    }
+
+    async function watchAd() {
+      if (isWatchingAd) return;
+      isWatchingAd = true;
+      startAdWatchBtn.disabled = true;
+
+      const durationMs = 5000;
+      const startTime = Date.now();
+
+      adWatchBtnText.textContent = 'Watching Ad…';
+      adWatchBtnIcon.textContent = '⏳';
+
+      const timerInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / durationMs, 1);
+        adTimerFill.style.width = `${progress * 100}%`;
+        const remainingSec = Math.max(0, Math.ceil((durationMs - elapsed) / 1000));
+
+        if (remainingSec > 0) {
+          adTimerLabel.textContent = `Sponsor message playing… ${remainingSec}s remaining`;
+        } else {
+          adTimerLabel.textContent = 'Unlocking +10 conversions…';
+        }
+
+        if (progress >= 1) {
+          clearInterval(timerInterval);
+          finishAdWatch();
+        }
+      }, 100);
+    }
+
+    function finishAdWatch() {
+      addBonusCredits(10);
+      updateQuotaUI();
+
+      adTimerFill.style.width = '100%';
+      adTimerLabel.textContent = '🎉 Bonus granted: +10 conversions added!';
+      adWatchBtnText.textContent = '✓ Unlocked! (+10 Added)';
+      adWatchBtnIcon.textContent = '✅';
+
+      setTimeout(() => {
+        isWatchingAd = false;
+        adModalOverlay.classList.remove('visible');
+        if (typeof pendingConversionAction === 'function') {
+          const action = pendingConversionAction;
+          pendingConversionAction = null;
+          action();
+        }
+      }, 700);
+    }
+
+    // Modal listeners
+    adModalCloseBtn.addEventListener('click', closeAdModal);
+    adCancelBtn.addEventListener('click', closeAdModal);
+    startAdWatchBtn.addEventListener('click', watchAd);
+    watchAdBonusBtn.addEventListener('click', () => {
+      openAdModal('Watch a brief 5-second sponsor message to claim <strong>+10 bonus conversions</strong> anytime!');
+    });
+    adModalOverlay.addEventListener('click', (e) => {
+      if (e.target === adModalOverlay) closeAdModal();
+    });
+
+    // ──────────────────────────────────────────────
+    //  Main convert handler
+    // ──────────────────────────────────────────────
+    convertBtn.addEventListener('click', async () => {
+      if (selectedFiles.length === 0) return;
+
+      const requiredCredits = (currentMode === 'image' || (currentMode === 'pdf' && formatSelect.value === 'images-to-pdf'))
+        ? selectedFiles.length
+        : 1;
+
+      const remaining = getRemainingConversions();
+
+      // Check condition: if user wants to convert 10+ files or has exhausted free conversions
+      if (selectedFiles.length > 10 || remaining < requiredCredits) {
+        const reasonText = selectedFiles.length > 10
+          ? `You have selected <strong>${selectedFiles.length} files</strong> (10+ batch). Watch a quick 5-second sponsor message to unlock high-volume batch conversion!`
+          : `You need <strong>${requiredCredits} conversion${requiredCredits > 1 ? 's' : ''}</strong>, but have <strong>${remaining}</strong> remaining. Watch a quick 5-second sponsor message to unlock <strong>+10 more</strong>!`;
+
+        pendingConversionAction = executeConversion;
+        openAdModal(reasonText);
+        return;
+      }
+
+      await executeConversion();
+    });
+
+    async function executeConversion() {
+      const requiredCredits = (currentMode === 'image' || (currentMode === 'pdf' && formatSelect.value === 'images-to-pdf'))
+        ? selectedFiles.length
+        : 1;
+
+      convertBtn.disabled = true;
+      convertText.textContent = 'Converting…';
+      hideResult();
+      showProgress(true);
+      setProgress(0, 'Starting…');
+      setStatus('');
+
+      try {
+        switch (currentMode) {
+          case 'image': await runImageConversion(); break;
+          case 'pdf':   await runPDFConversion();   break;
+          case 'video': await runVideoConversion(); break;
+          case 'audio': await runAudioConversion(); break;
+        }
+
+        // Deduct used conversion credits
+        setConversionsUsed(getConversionsUsed() + requiredCredits);
+        updateQuotaUI();
+      } catch (err) {
+        setStatus('Conversion failed: ' + err.message, 'error');
+        showProgress(false);
+      }
+
+      convertBtn.disabled = false;
+      convertText.textContent = 'Convert';
+    }
+
+    // ── Download result ──
+    downloadResult.addEventListener('click', () => {
+      if (!resultBlob) return;
+      const url = URL.createObjectURL(resultBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = resultFileName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    });
+
+    // ── Initialize ──
+    switchMode('image');
+    updateQuotaUI();
+  </script>
+</body>
+</html>
