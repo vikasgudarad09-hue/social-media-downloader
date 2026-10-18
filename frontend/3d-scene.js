@@ -13,64 +13,10 @@
   'use strict';
 
   // ─────────────────────────────────────────────────────────────
-  // 1. Synthesized Futuristic Spatial Audio (Web Audio API)
+  // 1. Audio FX (Disabled)
   // ─────────────────────────────────────────────────────────────
-  let audioCtx = null;
-  let soundEnabled = true;
-
-  function initAudio() {
-    if (!audioCtx) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) audioCtx = new AudioContext();
-    }
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
-  }
-
-  function playHoverChime(freq = 520) {
-    if (!soundEnabled || !audioCtx) return;
-    try {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + 0.08);
-
-      gain.gain.setValueAtTime(0.015, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.12);
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.12);
-    } catch (_) {}
-  }
-
-  function playClickPulse() {
-    if (!soundEnabled || !audioCtx) return;
-    try {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(180, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.07);
-
-      gain.gain.setValueAtTime(0.035, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.08);
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.08);
-    } catch (_) {}
-  }
-
-  ['click', 'keydown', 'pointerdown'].forEach((evt) => {
-    window.addEventListener(evt, initAudio, { once: true, passive: true });
-  });
+  function playHoverChime() {}
+  function playClickPulse() {}
 
   // ─────────────────────────────────────────────────────────────
   // 2. 3D Spatial Canvas Universe
@@ -278,7 +224,6 @@
 
       function onMouseEnter() {
         bounds = el.getBoundingClientRect();
-        playHoverChime(620);
       }
 
       function onMouseMove(e) {
@@ -381,44 +326,12 @@
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 8. Sound Control Toggle Button
-  // ─────────────────────────────────────────────────────────────
-  function initSoundToggle() {
-    let toggleBtn = document.getElementById('btn-sound-toggle');
-    if (!toggleBtn) {
-      const navContainer = document.querySelector('header nav, header .space-x-2, header .flex.items-center');
-      if (navContainer) {
-        toggleBtn = document.createElement('button');
-        toggleBtn.id = 'btn-sound-toggle';
-        toggleBtn.type = 'button';
-        toggleBtn.className = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900/90 border border-slate-800 text-slate-300 hover:text-cyan-300 hover:border-cyan-400/50 transition cursor-pointer select-none';
-        toggleBtn.title = 'Toggle 3D Audio FX';
-        toggleBtn.innerHTML = '<i class="fa-solid fa-volume-high text-xs text-cyan-400"></i><span class="hidden sm:inline">3D Sound</span>';
-
-        toggleBtn.addEventListener('click', () => {
-          initAudio();
-          soundEnabled = !soundEnabled;
-          if (soundEnabled) {
-            toggleBtn.innerHTML = '<i class="fa-solid fa-volume-high text-xs text-cyan-400"></i><span class="hidden sm:inline">3D Sound</span>';
-            playHoverChime(700);
-          } else {
-            toggleBtn.innerHTML = '<i class="fa-solid fa-volume-xmark text-xs text-slate-500"></i><span class="hidden sm:inline text-slate-500">Muted</span>';
-          }
-        });
-
-        navContainer.appendChild(toggleBtn);
-      }
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // 9. Boot on DOM Ready
+  // 8. Boot on DOM Ready
   // ─────────────────────────────────────────────────────────────
   function boot() {
     init3DBackground();
     init3DTilt();
     init3DCursorAura();
-    initSoundToggle();
   }
 
   if (document.readyState === 'loading') {
@@ -429,8 +342,6 @@
 
   window.init3DScene = {
     init3DBackground,
-    init3DTilt,
-    playHoverChime,
-    playClickPulse
+    init3DTilt
   };
 })();
