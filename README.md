@@ -162,6 +162,21 @@ firebase deploy
 
 ---
 
+## 💼 Creative Services & Custom Development (Jayaprabhu Creations)
+
+Need high-impact creative production, custom development, or freelance work? **Jayaprabhu Creations** provides professional digital services:
+
+* 🎬 **3D Animations & CGI**: Cinematic 3D animation, Blender motion graphics, product modeling & visual effects.
+* 🎨 **Graphic & UI/UX Design**: Modern brand identity, UI/UX design, logos, vector graphics & marketing assets.
+* ✂️ **Professional Video Editing**: High-retention Reels/Shorts, YouTube video editing, color grading & sound FX.
+* 🤖 **AI Video & Image Creation**: Photorealistic AI imagery, synthetic video production, avatars & AI art direction.
+* 💻 **Custom Websites & Web Apps**: Interactive 3D web applications, SaaS tools, REST APIs & automated pipelines.
+
+📬 **Hire Us / Job Inquiries**:  
+If you have any project or need work done, email us directly at: **[jpcreations011@gmail.com](mailto:jpcreations011@gmail.com?subject=Job%20Inquiry%20-%20Jayaprabhu%20Creations)**
+
+---
+
 ## ☕ Support the Creator
 
 If you find **JPMediaSaver** helpful, feel free to support ongoing server and development costs:
