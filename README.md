@@ -75,8 +75,8 @@ Sleek dark-mode interface built with Tailwind CSS, supporting automatic link pas
 * **Custom Support / Donation Options**:
   * Indian supporters can pay any custom INR amount directly to PhonePe/GPay UPI (`vickyunion99@ibl`).
   * International supporters can donate any custom USD amount via official PayPal checkout.
-* **Strict 100% Non-Adult & Clean Ad Integration**:
-  * Monitored Adsterra 728x90 banner and native recommendations with adult/gambling filters active.
+* **100% Ad-Free Experience**:
+  * Completely free of intrusive ads, third-party ad scripts, or trackers. Supported directly by community sponsorships and client projects.
 * **Zero Data Retention Policy**: We do not store downloaded files or search history; media streams directly from CDNs.
 * **Download History Tracking**: Optional local storage and Firebase Firestore user history synchronization.
 
@@ -89,8 +89,7 @@ Sleek dark-mode interface built with Tailwind CSS, supporting automatic link pas
 | **Frontend** | Vanilla JavaScript (ES6+), Tailwind CSS (CDN), FontAwesome 6, Plus Jakarta Sans |
 | **Backend** | Python 3.10, FastAPI, `yt-dlp`, `pytubefix`, `a2wsgi`, Firebase Admin SDK |
 | **Cloud & Deployment** | Google Firebase Hosting, Firebase Cloud Functions (2nd Gen / Cloud Run) |
-| **Payment Integrations** | UPI Deep-Linking (`upi://pay`), PayPal Donate |
-| **Monetization** | Adsterra (Filtered clean 728x90 Banner, Native Recommendations) |
+| **Support & Funding** | GitHub Sponsors, UPI Deep-Linking (`upi://pay`), PayPal Donate |
 
 ---
 

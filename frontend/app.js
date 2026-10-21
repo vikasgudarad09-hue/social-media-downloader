@@ -73,12 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const formatSelect = document.getElementById("format-select");
     const downloadFormatBtn = document.getElementById("download-format-btn");
 
-    // Ad Unlock Modal Elements
-    const adUnlockModal = document.getElementById("ad-unlock-modal");
-    const closeAdModalBtn = document.getElementById("close-ad-modal-btn");
-    const unlockAdBtn = document.getElementById("unlock-ad-btn");
-    const adTimerText = document.getElementById("ad-timer-text");
-    const unlockBtnIcon = document.getElementById("unlock-btn-icon");
 
     // Firebase Auth & History UI Elements
     const btnLoginGoogle = document.getElementById("btn-login-google");
@@ -96,9 +90,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const historySyncIndicator = document.getElementById("history-sync-indicator");
 
     let currentExtraction = null;
-    let isUnlockedForAd = false;
-    let pendingDownloadTarget = null;
-    let adCountdownInterval = null;
 
     // Paste from Clipboard
     btnPaste.addEventListener("click", async () => {
@@ -299,70 +290,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Sponsor Ad Unlock Gate on Download Clicks
-    function handleDownloadGate(e, targetUrl) {
-        if (!isUnlockedForAd && targetUrl && targetUrl !== "#") {
-            e.preventDefault();
-            pendingDownloadTarget = targetUrl;
-            openAdUnlockModal();
-        }
-    }
-
-    downloadVideoBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadVideoBtn.href));
-    downloadAudioBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadAudioBtn.href));
-    downloadFormatBtn.addEventListener("click", (e) => handleDownloadGate(e, downloadFormatBtn.href));
-
-    // Ad Unlock Modal Logic
-    function openAdUnlockModal() {
-        show(adUnlockModal);
-        unlockAdBtn.disabled = true;
-        unlockAdBtn.className = "w-full py-3.5 rounded-xl bg-slate-800 text-slate-400 text-xs font-bold transition flex items-center justify-center gap-2 cursor-not-allowed";
-        unlockBtnIcon.className = "fa-solid fa-lock";
-
-        let secondsLeft = 5;
-        adTimerText.textContent = `Watch ad to unlock (${secondsLeft}s)...`;
-
-        if (adCountdownInterval) clearInterval(adCountdownInterval);
-
-        adCountdownInterval = setInterval(() => {
-            secondsLeft--;
-            if (secondsLeft > 0) {
-                adTimerText.textContent = `Watch ad to unlock (${secondsLeft}s)...`;
-            } else {
-                clearInterval(adCountdownInterval);
-                adTimerText.textContent = "🔓 Unlock & Download Now";
-                unlockBtnIcon.className = "fa-solid fa-unlock text-emerald-400";
-                unlockAdBtn.disabled = false;
-                unlockAdBtn.className = "w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer animate-pulse";
-            }
-        }, 1000);
-    }
-
-    unlockAdBtn.addEventListener("click", () => {
-        isUnlockedForAd = true;
-        hide(adUnlockModal);
-        showToast("Download unlocked! Starting download...", "success");
-
-        if (pendingDownloadTarget) {
-            const dlLink = document.createElement("a");
-            dlLink.href = pendingDownloadTarget;
-            dlLink.setAttribute("download", "");
-            dlLink.target = "_blank";
-            document.body.appendChild(dlLink);
-            dlLink.click();
-            setTimeout(() => {
-                if (dlLink.parentNode) dlLink.remove();
-            }, 300);
-            pendingDownloadTarget = null;
-        }
-    });
-
-    if (closeAdModalBtn) {
-        closeAdModalBtn.addEventListener("click", () => {
-            if (adCountdownInterval) clearInterval(adCountdownInterval);
-            hide(adUnlockModal);
-        });
-    }
 
     // Copy Media Link
     copyLinkBtn.addEventListener("click", () => {

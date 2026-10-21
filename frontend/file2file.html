@@ -531,255 +531,7 @@
       100% { transform: translate(-50%, -50%) rotateX(68deg) rotateZ(360deg); }
     }
 
-    /* ── Quota pill & Ad system ── */
-    .quota-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 6px 14px;
-      border-radius: 9999px;
-      background: rgba(14, 16, 32, 0.85);
-      border: 1px solid rgba(115, 243, 239, 0.28);
-      font-size: 12px;
-      color: var(--muted);
-      backdrop-filter: blur(8px);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-    }
-    .quota-pill strong {
-      color: var(--cyan);
-      font-weight: 700;
-    }
-    .quota-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--cyan);
-      box-shadow: 0 0 8px var(--cyan);
-    }
-    .quota-bonus-btn {
-      padding: 3px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      color: #080914;
-      background: linear-gradient(135deg, #73f3ef, #a78bfa);
-      border: none;
-      cursor: pointer;
-      transition: all var(--transition);
-    }
-    .quota-bonus-btn:hover {
-      transform: scale(1.05);
-      box-shadow: 0 0 12px rgba(115, 243, 239, 0.6);
-    }
 
-    /* ── Ad Modal ── */
-    .ad-modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(4, 5, 12, 0.82);
-      backdrop-filter: blur(12px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s ease;
-      padding: 18px;
-    }
-    .ad-modal-overlay.visible {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    .ad-modal-card {
-      position: relative;
-      width: min(480px, 100%);
-      background: linear-gradient(145deg, rgba(22, 23, 44, 0.96), rgba(14, 16, 32, 0.98));
-      border: 1.5px solid rgba(115, 243, 239, 0.35);
-      border-radius: 20px;
-      padding: 28px 24px 22px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), 0 0 35px rgba(115, 243, 239, 0.2);
-      text-align: center;
-      transform: scale(0.94);
-      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    .ad-modal-overlay.visible .ad-modal-card {
-      transform: scale(1);
-    }
-    .ad-modal-close {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      color: var(--muted);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all var(--transition);
-    }
-    .ad-modal-close:hover {
-      background: rgba(255, 255, 255, 0.2);
-      color: #fff;
-    }
-    .ad-modal-icon {
-      font-size: 34px;
-      margin-bottom: 8px;
-    }
-    .ad-modal-card h3 {
-      font-size: 20px;
-      font-weight: 800;
-      color: #fff;
-      margin-bottom: 6px;
-    }
-    .ad-modal-sub {
-      font-size: 13px;
-      color: var(--muted);
-      line-height: 1.5;
-      margin-bottom: 18px;
-    }
-    .ad-screen {
-      background: rgba(8, 9, 20, 0.85);
-      border: 1px solid rgba(115, 243, 239, 0.22);
-      border-radius: 14px;
-      padding: 16px;
-      margin-bottom: 18px;
-      position: relative;
-      overflow: hidden;
-    }
-    .ad-badge {
-      position: absolute;
-      top: 10px;
-      left: 12px;
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: 0.1em;
-      color: var(--cyan);
-      background: rgba(115, 243, 239, 0.12);
-      padding: 2px 7px;
-      border-radius: 4px;
-      border: 1px solid rgba(115, 243, 239, 0.3);
-    }
-    .ad-video-mockup {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-top: 18px;
-      margin-bottom: 14px;
-      text-align: left;
-    }
-    .ad-visual-waves {
-      display: flex;
-      align-items: flex-end;
-      gap: 3px;
-      height: 32px;
-      padding: 4px;
-      background: rgba(115, 243, 239, 0.1);
-      border-radius: 8px;
-      flex-shrink: 0;
-    }
-    .ad-visual-waves span {
-      width: 4px;
-      height: 8px;
-      background: var(--cyan);
-      border-radius: 2px;
-      animation: wavePlay 1s infinite ease-in-out alternate;
-    }
-    .ad-visual-waves span:nth-child(2) { animation-delay: 0.2s; height: 18px; }
-    .ad-visual-waves span:nth-child(3) { animation-delay: 0.4s; height: 26px; }
-    .ad-visual-waves span:nth-child(4) { animation-delay: 0.1s; height: 14px; }
-    .ad-visual-waves span:nth-child(5) { animation-delay: 0.3s; height: 22px; }
-    @keyframes wavePlay {
-      0% { transform: scaleY(0.35); }
-      100% { transform: scaleY(1); }
-    }
-    .ad-sponsor-info h4 {
-      font-size: 14px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 2px;
-    }
-    .ad-sponsor-info p {
-      font-size: 11px;
-      color: var(--muted);
-      line-height: 1.35;
-    }
-    .ad-timer-bar {
-      height: 6px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 999px;
-      overflow: hidden;
-      margin-bottom: 8px;
-    }
-    .ad-timer-fill {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #73f3ef, #a78bfa);
-      transition: width 0.1s linear;
-    }
-    .ad-timer-label {
-      font-size: 11px;
-      color: var(--muted);
-      font-weight: 600;
-    }
-    .ad-modal-actions {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .ad-watch-btn {
-      flex: 1;
-      padding: 12px 16px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #73f3ef, #a78bfa);
-      color: #080914;
-      font-weight: 800;
-      font-size: 13px;
-      border: none;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      box-shadow: 0 4px 18px rgba(115, 243, 239, 0.4);
-      transition: all var(--transition);
-    }
-    .ad-watch-btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 24px rgba(115, 243, 239, 0.6);
-    }
-    .ad-watch-btn:disabled {
-      opacity: 0.65;
-      cursor: not-allowed;
-    }
-    .ad-cancel-btn {
-      padding: 12px 18px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all var(--transition);
-    }
-    .ad-cancel-btn:hover {
-      background: rgba(255, 255, 255, 0.12);
-      color: #fff;
-    }
-    .ad-creator-support {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 8px;
-    }
-    .ad-creator-support a {
-      color: var(--cyan);
-      text-decoration: underline;
-    }
   </style>
   <script src="3d-scene.js" defer></script>
 </head>
@@ -807,32 +559,12 @@
       <div class="eyebrow">✦ 100% browser-side · zero uploads · private</div>
       <h1>Convert <em>anything.</em><br>Right here.</h1>
       <p>Images, PDFs, video, audio — transform files instantly in your browser. Nothing leaves your device.</p>
-      <!-- Quota / Ad Counter -->
-      <div style="margin-top: 18px;">
-        <div class="quota-pill" id="quotaPill">
-          <span class="quota-dot"></span>
-          <span id="quotaText"><strong>10</strong> free conversions left</span>
-          <button type="button" id="watchAdBonusBtn" class="quota-bonus-btn" title="Watch a quick ad to get +10 more conversions">+ Watch Ad (+10)</button>
-        </div>
+      <!-- Privacy & Unlimited Badge -->
+      <div style="margin-top: 18px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 999px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); color: #6ee7b7; font-size: 12px; font-weight: 700;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+        <span>100% Free & Unlimited · Zero Ads · 100% In-Browser Privacy</span>
       </div>
     </section>
-
-    <!-- Top Ad Placement Container -->
-    <div style="margin: 10px auto 26px; max-width: 760px; text-align: center;">
-      <div style="min-height: 90px; background: rgba(14, 16, 32, 0.7); border: 1px solid rgba(115, 243, 239, 0.2); border-radius: 16px; padding: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow-x: auto; backdrop-filter: blur(12px);">
-        <span style="position: absolute; top: 4px; right: 10px; font-size: 8px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 700;">Advertisement</span>
-        <script type="text/javascript">
-          atOptions = {
-            'key' : '15fe4875cdab0ab1a1683941c59050cc',
-            'format' : 'iframe',
-            'height' : 90,
-            'width' : 728,
-            'params' : {}
-          };
-        </script>
-        <script type="text/javascript" src="https://www.highrevenueformat.com/15fe4875cdab0ab1a1683941c59050cc/invoke.js"></script>
-      </div>
-    </div>
 
     <!-- Mode selector -->
     <div class="mode-bar" id="modeBar">
@@ -1042,22 +774,6 @@
       </div>
     </section>
 
-    <!-- Bottom Ad Placement Container -->
-    <div style="margin: 28px auto 36px; max-width: 760px; text-align: center;">
-      <div style="min-height: 90px; background: rgba(14, 16, 32, 0.7); border: 1px solid rgba(115, 243, 239, 0.2); border-radius: 16px; padding: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow-x: auto; backdrop-filter: blur(12px);">
-        <span style="position: absolute; top: 4px; right: 10px; font-size: 8px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 700;">Advertisement</span>
-        <script type="text/javascript">
-          atOptions = {
-            'key' : '15fe4875cdab0ab1a1683941c59050cc',
-            'format' : 'iframe',
-            'height' : 90,
-            'width' : 728,
-            'params' : {}
-          };
-        </script>
-        <script type="text/javascript" src="https://www.highrevenueformat.com/15fe4875cdab0ab1a1683941c59050cc/invoke.js"></script>
-      </div>
-    </div>
 
     <!-- About & Creative Services (Jayaprabhu Creations) -->
     <section class="about-services-section" id="about" style="margin: 40px auto 32px; background: linear-gradient(145deg, rgba(22, 23, 44, 0.8), rgba(14, 16, 32, 0.95)); border: 1.5px solid rgba(115, 243, 239, 0.3); border-radius: 24px; padding: 32px 24px; backdrop-filter: blur(16px); box-shadow: 0 16px 45px rgba(0,0,0,0.5);">
@@ -1124,61 +840,6 @@
     </footer>
   </div>
 
-  <!-- Ad Reward Modal (for 10+ conversions) -->
-  <div class="ad-modal-overlay" id="adModalOverlay" role="dialog" aria-modal="true" aria-labelledby="adModalTitle">
-    <div class="ad-modal-card">
-      <button type="button" class="ad-modal-close" id="adModalCloseBtn" aria-label="Close dialog">✕</button>
-      <div class="ad-modal-icon">🎬</div>
-      <h3 id="adModalTitle">Unlock More Conversions</h3>
-      <p class="ad-modal-sub" id="adModalSub">
-        You have reached the free limit (or converting a batch of 10+ files). Watch a brief 5-second sponsor message to instantly unlock <strong>+10 more conversions</strong> for free!
-      </p>
-
-      <!-- Simulated Sponsor Ad Screen -->
-      <div class="ad-screen" id="adScreen">
-        <div class="ad-badge">SPONSOR SPOTLIGHT</div>
-        <div class="ad-video-mockup">
-          <div class="ad-visual-waves">
-            <span></span><span></span><span></span><span></span><span></span>
-          </div>
-          <div class="ad-sponsor-info">
-            <h4>JPMediaSaver Pro & Jayaprabhu Suite</h4>
-            <p>Fastest Universal Tools for Media, Audio & File Conversion</p>
-          </div>
-        </div>
-
-        <!-- Live Network Ad Container -->
-        <div style="min-height: 90px; margin: 10px 0; overflow-x: auto; background: rgba(0,0,0,0.4); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-          <script type="text/javascript">
-            atOptions = {
-              'key' : '15fe4875cdab0ab1a1683941c59050cc',
-              'format' : 'iframe',
-              'height' : 90,
-              'width' : 728,
-              'params' : {}
-            };
-          </script>
-          <script type="text/javascript" src="https://www.highrevenueformat.com/15fe4875cdab0ab1a1683941c59050cc/invoke.js"></script>
-        </div>
-
-        <div class="ad-timer-bar">
-          <div class="ad-timer-fill" id="adTimerFill"></div>
-        </div>
-        <div class="ad-timer-label" id="adTimerLabel">Watch 5 seconds to claim +10 conversions</div>
-      </div>
-
-      <div class="ad-modal-actions">
-        <button type="button" class="ad-watch-btn" id="startAdWatchBtn">
-          <span id="adWatchBtnIcon">▶</span> <span id="adWatchBtnText">Watch 5s Ad to Unlock (+10)</span>
-        </button>
-        <button type="button" class="ad-cancel-btn" id="adCancelBtn">Cancel</button>
-      </div>
-
-      <div class="ad-creator-support">
-        Want unlimited conversions with zero ads? <a href="index.html" target="_blank">Support Creator on JPMediaSaver →</a>
-      </div>
-    </div>
-  </div>
 
   <!-- FFmpeg loading overlay -->
   <div class="ffmpeg-loading" id="ffmpegOverlay">
@@ -1222,19 +883,7 @@
     const ffmpegOverlay   = document.getElementById('ffmpegOverlay');
     const ffmpegLoadText  = document.getElementById('ffmpegLoadText');
 
-    // ── Quota & Ad Modal DOM refs ──
-    const quotaPill        = document.getElementById('quotaPill');
-    const quotaText        = document.getElementById('quotaText');
-    const watchAdBonusBtn   = document.getElementById('watchAdBonusBtn');
-    const adModalOverlay   = document.getElementById('adModalOverlay');
-    const adModalCloseBtn  = document.getElementById('adModalCloseBtn');
-    const adCancelBtn      = document.getElementById('adCancelBtn');
-    const startAdWatchBtn  = document.getElementById('startAdWatchBtn');
-    const adWatchBtnText   = document.getElementById('adWatchBtnText');
-    const adWatchBtnIcon   = document.getElementById('adWatchBtnIcon');
-    const adTimerFill      = document.getElementById('adTimerFill');
-    const adTimerLabel     = document.getElementById('adTimerLabel');
-    const adModalSub       = document.getElementById('adModalSub');
+
 
     // ── Mode configuration ──
     const modeConfig = {
@@ -2067,168 +1716,14 @@
     }
 
     // ──────────────────────────────────────────────
-    //  Quota & Ad Monetization System (10 Free, 10+ requires Ad)
-    // ──────────────────────────────────────────────
-    const FREE_LIMIT = 10;
-    let pendingConversionAction = null;
-    let isWatchingAd = false;
-
-    function getConversionsUsed() {
-      return parseInt(localStorage.getItem('f2f_conversions_used') || '0', 10);
-    }
-
-    function setConversionsUsed(val) {
-      localStorage.setItem('f2f_conversions_used', Math.max(0, val).toString());
-    }
-
-    function getBonusCredits() {
-      return parseInt(localStorage.getItem('f2f_bonus_credits') || '0', 10);
-    }
-
-    function addBonusCredits(amt) {
-      const cur = getBonusCredits();
-      localStorage.setItem('f2f_bonus_credits', (cur + amt).toString());
-    }
-
-    function getRemainingConversions() {
-      const totalAllowed = FREE_LIMIT + getBonusCredits();
-      const used = getConversionsUsed();
-      return Math.max(0, totalAllowed - used);
-    }
-
-    function updateQuotaUI() {
-      const rem = getRemainingConversions();
-      if (quotaText) {
-        quotaText.innerHTML = `<strong>${rem}</strong> free conversion${rem === 1 ? '' : 's'} left`;
-      }
-      if (quotaPill) {
-        if (rem === 0) {
-          quotaPill.style.borderColor = 'rgba(251, 113, 133, 0.55)';
-          quotaPill.style.boxShadow = '0 0 16px rgba(251, 113, 133, 0.25)';
-        } else {
-          quotaPill.style.borderColor = 'rgba(115, 243, 239, 0.28)';
-          quotaPill.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.35)';
-        }
-      }
-    }
-
-    function openAdModal(reason = '') {
-      if (reason && adModalSub) {
-        adModalSub.innerHTML = reason;
-      } else if (adModalSub) {
-        adModalSub.innerHTML = 'You have reached the free limit (or converting a batch of 10+ files). Watch a brief 5-second sponsor message to instantly unlock <strong>+10 more conversions</strong> for free!';
-      }
-      resetAdScreen();
-      adModalOverlay.classList.add('visible');
-    }
-
-    function closeAdModal() {
-      if (isWatchingAd) return;
-      adModalOverlay.classList.remove('visible');
-      pendingConversionAction = null;
-    }
-
-    function resetAdScreen() {
-      isWatchingAd = false;
-      adTimerFill.style.width = '0%';
-      adTimerLabel.textContent = 'Watch 5 seconds to claim +10 conversions';
-      startAdWatchBtn.disabled = false;
-      adWatchBtnText.textContent = 'Watch 5s Ad to Unlock (+10)';
-      adWatchBtnIcon.textContent = '▶';
-    }
-
-    async function watchAd() {
-      if (isWatchingAd) return;
-      isWatchingAd = true;
-      startAdWatchBtn.disabled = true;
-
-      const durationMs = 5000;
-      const startTime = Date.now();
-
-      adWatchBtnText.textContent = 'Watching Ad…';
-      adWatchBtnIcon.textContent = '⏳';
-
-      const timerInterval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / durationMs, 1);
-        adTimerFill.style.width = `${progress * 100}%`;
-        const remainingSec = Math.max(0, Math.ceil((durationMs - elapsed) / 1000));
-
-        if (remainingSec > 0) {
-          adTimerLabel.textContent = `Sponsor message playing… ${remainingSec}s remaining`;
-        } else {
-          adTimerLabel.textContent = 'Unlocking +10 conversions…';
-        }
-
-        if (progress >= 1) {
-          clearInterval(timerInterval);
-          finishAdWatch();
-        }
-      }, 100);
-    }
-
-    function finishAdWatch() {
-      addBonusCredits(10);
-      updateQuotaUI();
-
-      adTimerFill.style.width = '100%';
-      adTimerLabel.textContent = '🎉 Bonus granted: +10 conversions added!';
-      adWatchBtnText.textContent = '✓ Unlocked! (+10 Added)';
-      adWatchBtnIcon.textContent = '✅';
-
-      setTimeout(() => {
-        isWatchingAd = false;
-        adModalOverlay.classList.remove('visible');
-        if (typeof pendingConversionAction === 'function') {
-          const action = pendingConversionAction;
-          pendingConversionAction = null;
-          action();
-        }
-      }, 700);
-    }
-
-    // Modal listeners
-    adModalCloseBtn.addEventListener('click', closeAdModal);
-    adCancelBtn.addEventListener('click', closeAdModal);
-    startAdWatchBtn.addEventListener('click', watchAd);
-    watchAdBonusBtn.addEventListener('click', () => {
-      openAdModal('Watch a brief 5-second sponsor message to claim <strong>+10 bonus conversions</strong> anytime!');
-    });
-    adModalOverlay.addEventListener('click', (e) => {
-      if (e.target === adModalOverlay) closeAdModal();
-    });
-
-    // ──────────────────────────────────────────────
     //  Main convert handler
     // ──────────────────────────────────────────────
     convertBtn.addEventListener('click', async () => {
       if (selectedFiles.length === 0) return;
-
-      const requiredCredits = (currentMode === 'image' || (currentMode === 'pdf' && formatSelect.value === 'images-to-pdf'))
-        ? selectedFiles.length
-        : 1;
-
-      const remaining = getRemainingConversions();
-
-      // Check condition: if user wants to convert 10+ files or has exhausted free conversions
-      if (selectedFiles.length > 10 || remaining < requiredCredits) {
-        const reasonText = selectedFiles.length > 10
-          ? `You have selected <strong>${selectedFiles.length} files</strong> (10+ batch). Watch a quick 5-second sponsor message to unlock high-volume batch conversion!`
-          : `You need <strong>${requiredCredits} conversion${requiredCredits > 1 ? 's' : ''}</strong>, but have <strong>${remaining}</strong> remaining. Watch a quick 5-second sponsor message to unlock <strong>+10 more</strong>!`;
-
-        pendingConversionAction = executeConversion;
-        openAdModal(reasonText);
-        return;
-      }
-
       await executeConversion();
     });
 
     async function executeConversion() {
-      const requiredCredits = (currentMode === 'image' || (currentMode === 'pdf' && formatSelect.value === 'images-to-pdf'))
-        ? selectedFiles.length
-        : 1;
-
       convertBtn.disabled = true;
       convertText.textContent = 'Converting…';
       hideResult();
@@ -2243,10 +1738,6 @@
           case 'video': await runVideoConversion(); break;
           case 'audio': await runAudioConversion(); break;
         }
-
-        // Deduct used conversion credits
-        setConversionsUsed(getConversionsUsed() + requiredCredits);
-        updateQuotaUI();
       } catch (err) {
         setStatus('Conversion failed: ' + err.message, 'error');
         showProgress(false);
@@ -2273,7 +1764,6 @@
 
     // ── Initialize ──
     switchMode('image');
-    updateQuotaUI();
   </script>
 </body>
 </html>
