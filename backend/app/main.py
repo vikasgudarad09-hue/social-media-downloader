@@ -18,21 +18,35 @@ import httpx
 import re
 from typing import Optional
 
+from app.security import is_safe_proxy_url
+
 from fastapi.middleware.gzip import GZipMiddleware
 
 app = FastAPI(
     title="Social Media Downloader API",
     description="FastAPI service powered by yt-dlp to extract video metadata & direct stream links safely.",
-    version="1.0.0"
+    version="1.3.1"
 )
+
+# Standard Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    return response
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+# Secure CORS Middleware (API authentication uses Bearer token in headers, avoid wildcard credentials violation)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -49,9 +63,8 @@ def read_root(request: Request):
     return {
         "status": "online",
         "service": "Social Media Downloader API",
-        "version": "1.3.0",
-        "youtube_cookies_present": bool(raw_cookies),
-        "youtube_cookies_length": len(raw_cookies),
+        "version": "1.3.1",
+        "youtube_cookies_configured": bool(raw_cookies),
         "firebase": firebase_info["mode"],
         "endpoints": {
             "extract": "POST /api/extract",
@@ -91,10 +104,8 @@ def diagnose_youtube(url: Optional[str] = "https://www.youtube.com/watch?v=bFBvA
     from app.extractor import get_clean_youtube_cookies
     c_path, c_hdr = get_clean_youtube_cookies()
     diag["cookies_info"] = {
-        "cookie_file": c_path,
-        "cookie_file_exists": bool(c_path and os.path.exists(c_path)),
-        "cookie_header_length": len(c_hdr) if c_hdr else 0,
-        "sample": c_hdr[:50] if c_hdr else None
+        "cookie_file_configured": bool(c_path and os.path.exists(c_path)),
+        "cookie_header_configured": bool(c_hdr),
     }
 
     import yt_dlp
@@ -213,10 +224,14 @@ async def proxy_download(request: Request, url: str, filename: Optional[str] = "
     Supports Range requests for pause, resume, and streaming.
     """
     if not (url.startswith("http://") or url.startswith("https://")):
-        raise HTTPException(status_code=400, detail="Invalid URL scheme")
+        raise HTTPException(status_code=400, detail="Invalid URL scheme. Only HTTP and HTTPS are permitted.")
+
+    if not is_safe_proxy_url(url):
+        raise HTTPException(status_code=400, detail="Requested URL cannot be proxied: Host is restricted or internal.")
 
     # Sanitize filename
     safe_filename = re.sub(r'[^\w\s.-]', '', filename or "video.mp4").strip() or "video.mp4"
+    safe_filename = safe_filename[:120]
     client = httpx.AsyncClient(follow_redirects=True, timeout=90.0)
 
     try:
@@ -331,8 +346,13 @@ async def api_convert_media(
     out_path = None
 
     try:
-        orig_ext = os.path.splitext(file.filename or "")[1] or ".bin"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=orig_ext) as in_tmp:
+        raw_ext = os.path.splitext(file.filename or "")[1].lower()
+        # Sanitize extension: only alphanumeric chars, max 10 chars
+        safe_ext = "." + re.sub(r'[^a-z0-9]', '', raw_ext.lstrip('.'))[:10]
+        if safe_ext == ".":
+            safe_ext = ".bin"
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=safe_ext) as in_tmp:
             in_path = in_tmp.name
             # Chunked write with size limit to prevent memory/disk exhaustion
             bytes_written = 0
@@ -358,6 +378,7 @@ async def api_convert_media(
 
         orig_base = os.path.splitext(file.filename or "media")[0]
         safe_base = re.sub(r'[^a-zA-Z0-9_\- ]', '', orig_base).strip() or "media"
+        safe_base = safe_base[:100]
         out_filename = f"{safe_base}.{target_fmt}"
 
         background_tasks.add_task(_cleanup_paths, in_path, out_path)
